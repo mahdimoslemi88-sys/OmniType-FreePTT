@@ -1,0 +1,12 @@
+# Python environment
+voice_env/
+__pycache__/
+
+# Build files
+build/
+dist/
+*.spec
+
+# OS files
+.DS_Store
+Thumbs.db
