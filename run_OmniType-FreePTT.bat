@@ -1,2 +1,6 @@
 @echo off
-start "" "C:\Users\LENOVO LOQ\voice_env\Scripts\pythonw.exe" "C:\Users\LENOVO LOQ\Tools\VoiceTyper\OmniType-FreePTT.py"
+:: ============================================================================
+:: OmniType-FreePTT Silent Background Launcher
+:: Runs the Python script in the background without showing any black CMD window.
+:: ============================================================================
+wscript.exe "%~dp0run_silent.vbs"

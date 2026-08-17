@@ -1,0 +1,25 @@
+{
+  "prompts": [
+    "Python",
+    "VS Code",
+    "Next.js",
+    "TailwindCSS",
+    "PyTorch",
+    "Docker",
+    "Kubernetes",
+    "Faster-Whisper",
+    "Groq",
+    "API",
+    "OmniType"
+  ],
+  "replacements": {
+    "پایتون": "Python",
+    "وی اس کد": "VS Code",
+    "نکست جی اس": "Next.js",
+    "تیلویند": "TailwindCSS",
+    "داکر": "Docker",
+    "کوبارنتیس": "Kubernetes",
+    "فست ویسپر": "Faster-Whisper",
+    "گروک": "Groq"
+  }
+}
