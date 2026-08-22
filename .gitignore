@@ -13,6 +13,7 @@ __pycache__/
 
 # Compiled Executables & Binaries
 *.exe
+*.zip
 build/
 dist/
 *.spec
