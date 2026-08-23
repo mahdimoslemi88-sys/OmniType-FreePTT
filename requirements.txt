@@ -1,0 +1,12 @@
+# OmniType v2.1 — Dependencies
+pyaudio
+SpeechRecognition
+keyboard
+pyperclip
+requests
+deep-translator
+pystray
+Pillow
+# Optional: local ASR (requires GPU for best performance)
+# faster-whisper
+# ctranslate2

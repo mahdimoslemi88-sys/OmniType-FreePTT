@@ -2,8 +2,8 @@
 # VSVersionInfo file for PyInstaller executable metadata
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(2, 0, 0, 0),
-    prodvers=(2, 0, 0, 0),
+    filevers=(2, 1, 0, 0),
+    prodvers=(2, 1, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -19,12 +19,12 @@ VSVersionInfo(
         [
           StringStruct('CompanyName', 'OmniType System'),
           StringStruct('FileDescription', 'OmniType-FreePTT Smart Voice & AI Translator Assistant'),
-          StringStruct('FileVersion', '2.0.0.0'),
+          StringStruct('FileVersion', '2.1.0.0'),
           StringStruct('InternalName', 'OmniType-FreePTT'),
           StringStruct('LegalCopyright', 'Copyright (C) 2026 OmniType. Open Source & Free.'),
           StringStruct('OriginalFilename', 'OmniType-FreePTT.exe'),
           StringStruct('ProductName', 'OmniType-FreePTT'),
-          StringStruct('ProductVersion', '2.0.0.0')
+          StringStruct('ProductVersion', '2.1.0.0')
         ]
       )
       ]
