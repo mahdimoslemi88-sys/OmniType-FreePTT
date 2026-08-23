@@ -9,8 +9,22 @@
     "Kubernetes",
     "Faster-Whisper",
     "Groq",
+    "OmniType",
+    "mcp",
     "API",
-    "OmniType"
+    "atigravity",
+    "claude code",
+    "agent",
+    "gemini",
+    ".",
+    "hub",
+    "acount",
+    "FOLDER",
+    "%",
+    "session limit",
+    "open router",
+    "limit",
+    "alt"
   ],
   "replacements": {
     "پایتون": "Python",
@@ -20,6 +34,21 @@
     "داکر": "Docker",
     "کوبارنتیس": "Kubernetes",
     "فست ویسپر": "Faster-Whisper",
-    "گروک": "Groq"
+    "گروک": "Groq",
+    "ام سی پی": "mcp",
+    "‏اي پي اي": "API",
+    "آنتی گراویتی": "atigravity",
+    "کلود کد": "claude code",
+    "ايجنت": "agent",
+    "جميناي": "gemini",
+    "پوينت": ".",
+    "هاب": "hub",
+    "اکانت": "acount",
+    "پوشه": "FOLDER",
+    "درصد": "%",
+    "سیزن لیمیت": "session limit",
+    "اپن روتر": "open router",
+    "لیمیت": "limit",
+    "آلت": "alt"
   }
 }
