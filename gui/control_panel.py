@@ -491,6 +491,14 @@ class ControlPanel(tk.Toplevel):
         self.vad_status_label.pack(fill="x", padx=14, pady=2)
         self._refresh_vad_status()
 
+        # ── آمار ──────────────────────────────────────────────
+        _section(body, "📊 آمار استفاده")
+        from core import stats as _stats
+        _s = _stats.get_stats()
+        self._stats_frame = tk.Frame(body, bg=BG_DARK)
+        self._stats_frame.pack(fill="x", padx=12, pady=4)
+        self._refresh_stats_ui(_s)
+
         _section(body, "کارت گرافیک")
         tk.Button(body, text="🧹 آزادسازی VRAM کارت گرافیک (برای بازی)", bg=BG_SURFACE, fg=ACCENT_YELLOW,
                   font=("Segoe UI", 10, "bold"), command=self.parent.free_vram_action,
@@ -577,6 +585,69 @@ class ControlPanel(tk.Toplevel):
                 text=f"✅ فعال — توقف پس از {t}s سکوت", fg=ACCENT_GREEN)
         else:
             self.vad_status_label.config(text="غیرفعال", fg=TEXT_SECONDARY)
+
+    # ── آمار ─────────────────────────────────────────────────────
+
+    def _refresh_stats_ui(self, data=None):
+        """بازسازی محتوای بخش آمار با داده‌های جدید."""
+        for w in self._stats_frame.winfo_children():
+            w.destroy()
+        if data is None:
+            from core import stats as _s
+            data = _s.get_stats()
+        total_words = data.get("total_words", 0)
+        total_rec = data.get("total_recordings", 0)
+        total_secs = data.get("total_recording_secs", 0.0)
+        eng = data.get("engine_usage", {})
+
+        # خلاصه
+        mins = int(total_secs // 60)
+        secs = int(total_secs % 60)
+        summary = (
+            f"📝 کل کلمات تایپ‌شده:  {total_words}\n"
+            f"🎙️ تعداد ضبط‌ها:      {total_rec}\n"
+            f"⏱️ مجموع زمان ضبط:   {mins} دقیقه و {secs} ثانیه"
+        )
+        tk.Label(self._stats_frame, text=summary, bg=BG_DARK, fg=TEXT_PRIMARY,
+                 font=("Consolas", 10), justify="right", anchor="w").pack(fill="x", padx=2)
+
+        # استفاده از هر موتور
+        if eng:
+            tk.Label(self._stats_frame, text="\n📊 استفاده از موتورها:",
+                     bg=BG_DARK, fg=ACCENT_CYAN,
+                     font=("Segoe UI", 10, "bold"), anchor="w").pack(fill="x")
+            max_count = max(eng.values()) if eng else 1
+            for name, count in sorted(eng.items(), key=lambda x: -x[1]):
+                row = tk.Frame(self._stats_frame, bg=BG_DARK)
+                row.pack(fill="x", pady=1)
+                tk.Label(row, text=f"  {name}", bg=BG_DARK, fg=TEXT_PRIMARY,
+                         font=("Segoe UI", 9), anchor="w", width=28).pack(side="left")
+                # نوار پیشرفت
+                bar_width = max(2, int(120 * count / max_count))
+                canvas = tk.Canvas(row, width=120, height=12, bg=BG_MID, highlightthickness=0)
+                canvas.pack(side="left", padx=4)
+                canvas.create_rectangle(0, 0, bar_width, 12, fill=ACCENT_CYAN, outline="")
+                tk.Label(row, text=str(count), bg=BG_DARK, fg=ACCENT_YELLOW,
+                         font=("Consolas", 9, "bold")).pack(side="left", padx=4)
+        else:
+            tk.Label(self._stats_frame, text="\n(هنوز آماری ثبت نشده است)",
+                     bg=BG_DARK, fg=TEXT_SECONDARY, font=("Segoe UI", 9),
+                     anchor="w").pack(fill="x")
+
+        # دکمهٔ پاک‌سازی آمار
+        tk.Button(self._stats_frame, text="🗑️ پاک‌سازی آمار",
+                  bg=BG_SURFACE, fg=ACCENT_RED,
+                  font=("Segoe UI", 9, "bold"), command=self._reset_stats,
+                  cursor="hand2", relief="flat", bd=0, padx=10, pady=4).pack(anchor="w", pady=(6, 0))
+
+    def _reset_stats(self):
+        from tkinter import messagebox
+        if messagebox.askyesno("پاک‌سازی آمار",
+                              "آیا مطمئنید که می‌خواهید همهٔ آمار را پاک کنید?",
+                              parent=self):
+            from core import stats as _s
+            _s.reset()
+            self._refresh_stats_ui()
 
     # ── میکروفون ─────────────────────────────────────────────────
 
@@ -758,5 +829,6 @@ class ControlPanel(tk.Toplevel):
             self._refresh_history()
             self._refresh_engine_status()
             self._refresh_update_status()
+            self._refresh_stats_ui()
         except Exception:
             pass

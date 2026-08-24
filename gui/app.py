@@ -12,7 +12,7 @@ import keyboard
 import pyaudio
 import pyperclip
 
-from core import config, updater
+from core import config, stats, updater
 from core.audio import RATE, get_input_level, list_input_devices, pcm_to_wav_bytes
 from core.config import ENV, save_env_dict
 from core.dictionary import CUSTOM_DICT
@@ -816,6 +816,12 @@ class VoiceTyperGUI:
                 self.history.append(text)
                 self.safe_type_and_restore_clipboard(text)
                 self.set_ui_state("success")
+                # ── ثبت آمار ──
+                try:
+                    elapsed = time.time() - getattr(self, "_recording_start", time.time())
+                    stats.record_typing(text, engine=self.current_engine, duration_sec=elapsed)
+                except Exception:
+                    pass
             else:
                 self.set_ui_state("idle")
         except Exception as e:
@@ -835,6 +841,7 @@ class VoiceTyperGUI:
 
         self.recording_mode = mode
         self.is_recording = True
+        self._recording_start = time.time()
         # توقف خودکار ویدیو/موزیک هنگام شروع صحبت
         self.media.pause()
         self.set_ui_state("recording")
