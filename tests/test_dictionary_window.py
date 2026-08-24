@@ -37,27 +37,13 @@ class _Parent:
         self.root = root
 
 
-@pytest.fixture(scope="module")
-def root():
-    try:
-        r = tk.Tk()
-    except tk.TclError:
-        pytest.skip("Tk unavailable")
-    r.withdraw()
-    yield r
-    try:
-        r.destroy()
-    except Exception:
-        pass
-
-
 @pytest.fixture
-def win(root):
-    parent = _Parent(root)
+def win(tk_root):
+    parent = _Parent(tk_root)
     mgr = _FakeDict()
     w = CustomDictionaryWindow(parent, mgr)
-    root.update_idletasks()
-    yield w, mgr, root
+    tk_root.update_idletasks()
+    yield w, mgr, tk_root
     try:
         w.destroy()
     except Exception:

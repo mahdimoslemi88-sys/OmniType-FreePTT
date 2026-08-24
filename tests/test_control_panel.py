@@ -54,28 +54,13 @@ class _StubParent:
         pass
 
 
-@pytest.fixture(scope="module")
-def root():
-    """یک ریشهٔ Tk مشترک — اگر دردسترس نبود کل ماژول skip می‌شود."""
-    try:
-        r = tk.Tk()
-    except tk.TclError as e:
-        pytest.skip(f"Tk unavailable: {e}")
-    r.withdraw()
-    yield r
-    try:
-        r.destroy()
-    except Exception:
-        pass
-
-
 @pytest.fixture
-def panel(root):
-    """ساخت پنل روی ریشهٔ مشترک و پاک‌سازی پنل پس از هر تست."""
-    stub = _StubParent(root)
+def panel(tk_root):
+    """ساخت پنل روی ریشهٔ مشترک (tk_root از conftest) و پاک‌سازی پس از هر تست."""
+    stub = _StubParent(tk_root)
     cp = ControlPanel(stub)
-    root.update_idletasks()
-    yield cp, stub, root
+    tk_root.update_idletasks()
+    yield cp, stub, tk_root
     try:
         cp.destroy()
     except Exception:
