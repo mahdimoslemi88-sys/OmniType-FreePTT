@@ -75,9 +75,11 @@ class DocumentTranslatorWindow(tk.Toplevel):
         tk.Button(action_row, text="⌨️ تایپ در پنجره قبلی", bg=BG_SURFACE, fg=ACCENT_YELLOW,
                   font=("Segoe UI", 9, "bold"), command=self._type_result,
                   cursor="hand2", padx=10).pack(side="left", padx=4)
-        tk.Button(action_row, text="🔊 پخش صدا", bg=BG_SURFACE, fg=ACCENT_CYAN,
+        self.btn_speak = tk.Button(action_row, text="🔊 پخش صدا", bg=BG_SURFACE, fg=ACCENT_CYAN,
                   font=("Segoe UI", 9, "bold"), command=self._speak_result,
-                  cursor="hand2", padx=10).pack(side="left", padx=4)
+                  cursor="hand2", padx=10)
+        self.btn_speak.pack(side="left", padx=4)
+        self._is_playing = False
 
         self.focus_force()
         self.lift()
@@ -130,15 +132,21 @@ class DocumentTranslatorWindow(tk.Toplevel):
 
     def _speak_result(self):
         """خواندن نتیجهٔ ترجمه با صدای سیستم یا صدای آنلاین فارسی (در thread جداگانه)."""
+        if self._is_playing:
+            return
         result = self._out_text.get("1.0", "end").strip()
         if not result:
             messagebox.showwarning("خطا", "ابتدا متن را ترجمه کنید.", parent=self)
             return
         try:
             from core.tts import speak
+            self._is_playing = True
+            self.btn_speak.config(state="disabled", text="🔊 در حال پخش...")
             self._status.config(text="🔊 در حال پخش صدا...")
             speak(result, on_done=self._on_speak_done)
         except Exception as e:
+            self._is_playing = False
+            self.btn_speak.config(state="normal", text="🔊 پخش صدا")
             self._status.config(text=f"❌ خطا در پخش صدا: {e}")
 
     def _on_speak_done(self, status):
@@ -150,6 +158,8 @@ class DocumentTranslatorWindow(tk.Toplevel):
 
     def _apply_speak_status(self, status):
         """به‌روزرسانی UI با نتیجهٔ پخش صدا (در thread اصلی)."""
+        self._is_playing = False
+        self.btn_speak.config(state="normal", text="🔊 پخش صدا")
         src = status.get("source")
         lang = status.get("lang")
         if src == "local":
