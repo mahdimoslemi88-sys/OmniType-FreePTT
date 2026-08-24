@@ -76,12 +76,13 @@ def _tab_texts(cp):
     return [cp.notebook.tab(i, "text") for i in range(len(cp.notebook.tabs()))]
 
 
-def test_panel_has_six_tabs(panel):
+def test_panel_has_seven_tabs(panel):
     cp, _stub, _root = panel
     tabs = _tab_texts(cp)
-    assert len(tabs) == 6
+    assert len(tabs) == 7
     assert any("موتور" in t for t in tabs)
     assert any("زبان" in t for t in tabs)
+    assert any("آمار" in t for t in tabs)
     assert any("تنظیمات" in t for t in tabs)
 
 
@@ -164,3 +165,29 @@ def test_meter_level_update_is_safe(panel):
     cp._on_meter_level(0.5)
     cp._on_meter_level(0.0)
     cp._on_meter_level(1.0)
+
+
+def test_stats_tab_exists_and_draws_without_data(panel):
+    cp, _stub, _root = panel
+    assert hasattr(cp, "stats_canvas")
+    # نمودار با دادهٔ خالی بدون خطا رسم می‌شود
+    cp._draw_stats_chart()
+    # پیام «هنوز آماری ثبت نشده» یا میله‌ها روی بوم است
+    assert cp.stats_canvas.find_all()
+    assert cp.stats_period_label.cget("text") != ""
+
+
+def test_stats_mode_switch_updates_buttons(panel):
+    cp, _stub, _root = panel
+    assert cp._stats_mode == "daily"
+    assert cp.btn_stats_daily.cget("bg") == ACCENT_GREEN or cp.btn_stats_daily.cget("bg") != ""
+    cp._set_stats_mode("weekly")
+    assert cp._stats_mode == "weekly"
+    cp._draw_stats_chart()  # بدون خطا
+    cp._set_stats_mode("daily")
+    assert cp._stats_mode == "daily"
+
+
+def test_stats_redraw_if_visible_is_safe(panel):
+    cp, _stub, _root = panel
+    cp._redraw_stats_if_visible()  # نباید exception بدهد

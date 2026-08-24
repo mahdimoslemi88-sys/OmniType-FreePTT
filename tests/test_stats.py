@@ -112,3 +112,68 @@ class TestReset:
         assert data["total_recordings"] == 0
         assert data["total_recording_secs"] == 0.0
         assert data["engine_usage"] == {}
+        assert data["daily_history"] == {}
+
+
+class TestHistory:
+    def test_record_typing_writes_daily_bucket(self, _use_temp_stats):
+        from core import stats as _stats
+        import datetime
+        today = datetime.date.today().isoformat()
+        _stats.record_typing("سلام دنیا", engine="google", duration_sec=2.0)
+        _stats.record_typing("یک", engine="google", duration_sec=1.0)
+        data = _stats.get_stats()
+        day = data["daily_history"][today]
+        assert day["words"] == 3
+        assert day["recordings"] == 2
+        assert abs(day["secs"] - 3.0) < 0.01
+
+    def test_get_daily_history_returns_days_in_order(self, _use_temp_stats):
+        from core import stats as _stats
+        import datetime
+        today = datetime.date.today()
+        _stats.record_typing("hello world", engine="google", duration_sec=1.0)
+        hist = _stats.get_daily_history(days=14)
+        assert len(hist) == 14
+        # قدیمی → جدید
+        assert hist[0][0] == (today - datetime.timedelta(days=13)).isoformat()
+        assert hist[-1][0] == today.isoformat()
+        # آخرین ورودی (امروز) کلمات ثبت‌شده را دارد
+        assert hist[-1][1] == 2
+        assert hist[-1][2] == 1
+        # روزهای بدون داده صفر هستند
+        assert hist[0][1] == 0
+
+    def test_get_daily_history_custom_days(self, _use_temp_stats):
+        from core import stats as _stats
+        assert len(_stats.get_daily_history(days=7)) == 7
+
+    def test_get_weekly_history_aggregates_days(self, _use_temp_stats):
+        from core import stats as _stats
+        import datetime
+        # چند روز در هفتهٔ جاری ثبت کن (کلمات مختلف)
+        _stats.record_typing("a b c", engine="google", duration_sec=1.0)   # 3 کلمه
+        _stats.record_typing("d e", engine="local", duration_sec=2.0)      # 2 کلمه
+        weeks = _stats.get_weekly_history(weeks=8)
+        assert len(weeks) == 8
+        # همهٔ ثبت‌ها در هفتهٔ آخر (امروز) جمع شده‌اند
+        assert weeks[-1][1] == 5
+        assert weeks[-1][2] == 2
+        assert abs(weeks[-1][3] - 3.0) < 0.01
+        # هفته‌های خالی صفرند
+        assert weeks[0][1] == 0
+
+    def test_weekly_history_corrupt_dates_ignored(self, _use_temp_stats):
+        from core import stats as _stats
+        import json
+        # یک تاریخ خراب در فایل بنویس
+        with open(_use_temp_stats, "w", encoding="utf-8") as f:
+            json.dump({"daily_history": {"not-a-date": {"words": 99}}}, f)
+        weeks = _stats.get_weekly_history(weeks=4)
+        assert len(weeks) == 4
+        assert all(w[1] == 0 for w in weeks)  # تاریخ خراب نادیده گرفته شد
+
+    def test_short_date_helper(self):
+        from gui.control_panel import ControlPanel
+        assert ControlPanel._short_date("2026-08-24") == "24/8"
+        assert ControlPanel._short_date("bad") == "bad"

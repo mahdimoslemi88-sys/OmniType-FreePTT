@@ -80,6 +80,7 @@ class ControlPanel(tk.Toplevel):
         self.tab_lang = tk.Frame(self.notebook, bg=BG_DARK)
         self.tab_hotkey = tk.Frame(self.notebook, bg=BG_DARK)
         self.tab_history = tk.Frame(self.notebook, bg=BG_DARK)
+        self.tab_stats = tk.Frame(self.notebook, bg=BG_DARK)
         self.tab_settings = tk.Frame(self.notebook, bg=BG_DARK)
 
         self.notebook.add(self.tab_quick, text="⚡ عملیات سریع")
@@ -87,6 +88,7 @@ class ControlPanel(tk.Toplevel):
         self.notebook.add(self.tab_lang, text="🌐 زبان")
         self.notebook.add(self.tab_hotkey, text="⌨️ میانبر")
         self.notebook.add(self.tab_history, text="📜 تاریخچه")
+        self.notebook.add(self.tab_stats, text="📈 آمار")
         self.notebook.add(self.tab_settings, text="⚙️ تنظیمات")
 
         self._build_quick_tab()
@@ -94,7 +96,13 @@ class ControlPanel(tk.Toplevel):
         self._build_lang_tab()
         self._build_hotkey_tab()
         self._build_history_tab()
+        self._build_stats_tab()
         self._build_settings_tab()
+
+        # ترسیم نمودار آمار هنگام انتخاب تب (و بعد از چیدمان کامل)
+        self.notebook.bind("<<NotebookTabChanged>>",
+                           lambda e: self._redraw_stats_if_visible())
+        self.after(150, self._redraw_stats_if_visible)
 
         # وضعیت زنده موتور فعال + بررسی دوره‌ای (هر ۶۰ ثانیه)
         self._status_checking = False
@@ -444,7 +452,148 @@ class ControlPanel(tk.Toplevel):
                   font=("Segoe UI", 9, "bold"), command=self.parent.clear_history_action,
                   cursor="hand2", relief="flat", bd=0, padx=10, pady=6).pack(fill="x", padx=12, pady=8)
 
-    # ── تب ۶: تنظیمات ────────────────────────────────────────────
+    # ── تب ۶: آمار (نمودار زمانی) ────────────────────────────────
+    def _build_stats_tab(self):
+        body = make_scrollable(self.tab_stats)
+
+        _section(body, "📈 تاریخچهٔ آمار")
+        tk.Label(body, text="نمودار زمانی کلمات تایپ‌شده (آبی) و تعداد ضبط‌ها (زرد) به‌صورت روزانه یا هفتگی.",
+                 bg=BG_DARK, fg=TEXT_SECONDARY, font=("Segoe UI", 9), anchor="w",
+                 wraplength=470, justify="left").pack(fill="x", padx=14, pady=(0, 4))
+
+        # دکمه‌های حالت نمودار
+        mode_row = tk.Frame(body, bg=BG_DARK)
+        mode_row.pack(fill="x", padx=12, pady=(4, 2))
+        self._stats_mode = "daily"
+        self.btn_stats_daily = tk.Button(
+            mode_row, text="📅 روزانه (۱۴ روز)", bg=ACCENT_BLUE, fg=BG_DARKER,
+            font=("Segoe UI", 9, "bold"), command=lambda: self._set_stats_mode("daily"),
+            cursor="hand2", relief="flat", bd=0, padx=10, pady=5)
+        self.btn_stats_daily.pack(side="left", padx=4)
+        self.btn_stats_weekly = tk.Button(
+            mode_row, text="🗓️ هفتگی (۸ هفته)", bg=BG_SURFACE, fg=TEXT_PRIMARY,
+            font=("Segoe UI", 9, "bold"), command=lambda: self._set_stats_mode("weekly"),
+            cursor="hand2", relief="flat", bd=0, padx=10, pady=5)
+        self.btn_stats_weekly.pack(side="left", padx=4)
+
+        # بوم نمودار
+        self.stats_canvas = tk.Canvas(body, height=240, bg=BG_MID,
+                                      highlightthickness=0, bd=1, relief="flat")
+        self.stats_canvas.pack(fill="x", padx=12, pady=(6, 4))
+
+        # جمع دوره
+        self.stats_period_label = tk.Label(body, text="", bg=BG_DARK, fg=TEXT_SECONDARY,
+                                           font=("Segoe UI", 9), anchor="w")
+        self.stats_period_label.pack(fill="x", padx=14, pady=(0, 2))
+
+        self._draw_stats_chart()
+
+    def _set_stats_mode(self, mode):
+        self._stats_mode = mode
+        daily_active = (mode == "daily")
+        self.btn_stats_daily.config(bg=ACCENT_BLUE if daily_active else BG_SURFACE,
+                                    fg=BG_DARKER if daily_active else TEXT_PRIMARY)
+        self.btn_stats_weekly.config(bg=ACCENT_BLUE if not daily_active else BG_SURFACE,
+                                     fg=BG_DARKER if not daily_active else TEXT_PRIMARY)
+        self._draw_stats_chart()
+
+    def _redraw_stats_if_visible(self):
+        """ترسیم نمودار وقتی تب آمار انتخاب شده (یا پنجره چیده شده)."""
+        try:
+            if not self.winfo_exists():
+                return
+            if str(self.notebook.select()) == str(self.tab_stats):
+                self._draw_stats_chart()
+            else:
+                # هنوز چیده نشده — پس از چیدمان دوباره ترسیم کن
+                self._draw_stats_chart()
+        except Exception:
+            pass
+
+    def _draw_stats_chart(self):
+        """ترسیم نمودار میله‌ای کلمات (آبی) و ضبط‌ها (زرد) روی Canvas."""
+        try:
+            from core import stats as _s
+        except Exception:
+            return
+        c = self.stats_canvas
+        c.delete("all")
+        W = max(200, c.winfo_width())
+        if W <= 2:
+            W = 520
+        H = c.winfo_height()
+        if H <= 2:
+            H = 240
+
+        if self._stats_mode == "daily":
+            series = _s.get_daily_history(days=14)
+            period_label = "۱۴ روز گذشته"
+        else:
+            series = _s.get_weekly_history(weeks=8)
+            period_label = "۸ هفتهٔ گذشته"
+
+        # عنوان دوره
+        total_words = sum(x[1] for x in series)
+        total_rec = sum(x[2] for x in series)
+        self.stats_period_label.config(
+            text=f"{period_label}:  {total_words} کلمه  ·  {total_rec} ضبط")
+
+        if total_words == 0 and total_rec == 0:
+            c.create_text(W // 2, H // 2, text="هنوز آماری ثبت نشده است",
+                          fill=TEXT_SECONDARY, font=("Segoe UI", 10))
+            return
+
+        # مارجین‌ها
+        left, right, top, bottom = 34, 8, 24, 26
+        plot_w = W - left - right
+        plot_h = H - top - bottom
+        max_val = max(max(x[1] for x in series), max(x[2] for x in series), 1)
+        n = len(series)
+        slot = plot_w / n
+        bar_w = max(3, min(16, slot * 0.28))
+        gap = max(1, int(slot * 0.1))
+
+        # خط مبنا
+        base_y = top + plot_h
+        c.create_line(left, base_y, W - right, base_y, fill=TEXT_SECONDARY)
+
+        for i, (label, words, recs, _secs) in enumerate(series):
+            cx = left + slot * i + slot / 2
+            if words > 0:
+                bh = max(2, plot_h * words / max_val)
+                c.create_rectangle(cx - bar_w - gap, base_y - bh, cx - gap, base_y,
+                                   fill=ACCENT_BLUE, outline="")
+                c.create_text(cx - bar_w / 2 - gap, base_y - bh - 8, text=str(words),
+                              fill=ACCENT_BLUE, font=("Segoe UI", 7, "bold"))
+            if recs > 0:
+                bh = max(2, plot_h * recs / max_val)
+                c.create_rectangle(cx + gap, base_y - bh, cx + bar_w + gap, base_y,
+                                   fill=ACCENT_YELLOW, outline="")
+                c.create_text(cx + bar_w / 2 + gap, base_y - bh - 8, text=str(recs),
+                              fill=ACCENT_YELLOW, font=("Segoe UI", 7, "bold"))
+            # برچسب تاریخ (روز/ماه)
+            short = self._short_date(label)
+            c.create_text(cx, base_y + 12, text=short, fill=TEXT_SECONDARY,
+                          font=("Segoe UI", 7))
+
+        # راهنما (legend)
+        c.create_rectangle(left, top - 18, left + 10, top - 8, fill=ACCENT_BLUE, outline="")
+        c.create_text(left + 14, top - 13, text="کلمات", anchor="w",
+                      fill=TEXT_PRIMARY, font=("Segoe UI", 8))
+        c.create_rectangle(left + 52, top - 18, left + 62, top - 8, fill=ACCENT_YELLOW, outline="")
+        c.create_text(left + 66, top - 13, text="ضبط‌ها", anchor="w",
+                      fill=TEXT_PRIMARY, font=("Segoe UI", 8))
+
+    @staticmethod
+    def _short_date(iso_date):
+        """تبدیل ISO به برچسب کوتاه «روز/ماه» (مثل ۲۴/۰۸)."""
+        try:
+            _y, m, d = iso_date.split("-")
+            return f"{int(d)}/{int(m)}"
+        except (ValueError, AttributeError):
+            return iso_date
+
+    # ── تب ۷: تنظیمات ────────────────────────────────────────────
     def _build_settings_tab(self):
         body = make_scrollable(self.tab_settings)
 
@@ -830,5 +979,6 @@ class ControlPanel(tk.Toplevel):
             self._refresh_engine_status()
             self._refresh_update_status()
             self._refresh_stats_ui()
+            self._draw_stats_chart()
         except Exception:
             pass
