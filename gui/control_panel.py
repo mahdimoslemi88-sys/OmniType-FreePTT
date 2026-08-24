@@ -452,6 +452,14 @@ class ControlPanel(tk.Toplevel):
                   font=("Segoe UI", 10, "bold"), command=self.parent.free_vram_action,
                   cursor="hand2", relief="flat", bd=0, padx=14, pady=9).pack(fill="x", padx=12, pady=3)
 
+        _section(body, "🔄 به‌روزرسانی")
+        self.update_label = tk.Label(body, text="", bg=BG_DARK, fg=TEXT_SECONDARY,
+                                     font=("Segoe UI", 9), anchor="w", wraplength=460, justify="left")
+        self.update_label.pack(fill="x", padx=14, pady=2)
+        tk.Button(body, text="🔄 بررسی به‌روزرسانی", bg=BG_SURFACE, fg=ACCENT_CYAN,
+                  font=("Segoe UI", 9, "bold"), command=self._check_updates,
+                  cursor="hand2", relief="flat", bd=0, padx=10, pady=6).pack(fill="x", padx=12, pady=6)
+
         _section(body, "دیگر")
         tk.Button(body, text="🧪 تست اتصال موتور فعال (LLM)", bg=BG_SURFACE, fg=ACCENT_GREEN,
                   font=("Segoe UI", 10, "bold"), command=self._test_connection,
@@ -467,6 +475,26 @@ class ControlPanel(tk.Toplevel):
     def _toggle_pause(self):
         self.parent.toggle_auto_pause_media()
         self.pause_var.set(self.parent.auto_pause_media)
+
+    # ── به‌روزرسانی ───────────────────────────────────────────────
+
+    def _check_updates(self):
+        """اجرای بررسی به‌روزرسانی (با نمایش دیالوگ نتیجه)."""
+        self.update_label.config(text="⏳ در حال بررسی به‌روزرسانی...", fg=ACCENT_YELLOW)
+        self.parent.check_for_updates(show_dialog=True)
+        self._refresh_update_status()
+
+    def _refresh_update_status(self):
+        """نمایش وضعیت به‌روزرسانی از parent (نتیجهٔ آخرین چک)."""
+        st = getattr(self.parent, "update_state", None) or {}
+        if st.get("available"):
+            self.update_label.config(
+                text=f"🟢 نسخهٔ جدید {st['latest']} موجود است — از ریلیز گیت‌هاب دانلود کنید.",
+                fg=ACCENT_GREEN)
+        elif "latest" in st:
+            self.update_label.config(text="✅ شما از آخرین نسخه استفاده می‌کنید.", fg=ACCENT_GREEN)
+        else:
+            self.update_label.config(text="وضعیت به‌روزرسانی نامشخص (یا آفلاین).", fg=TEXT_SECONDARY)
 
     def _test_connection(self):
         import threading
@@ -492,5 +520,6 @@ class ControlPanel(tk.Toplevel):
             self._refresh_engine_buttons()
             self._refresh_history()
             self._refresh_engine_status()
+            self._refresh_update_status()
         except Exception:
             pass

@@ -12,7 +12,7 @@ import keyboard
 import pyaudio
 import pyperclip
 
-from core import config
+from core import config, updater
 from core.audio import RATE, pcm_to_wav_bytes
 from core.config import ENV, save_env_dict
 from core.dictionary import CUSTOM_DICT
@@ -101,9 +101,14 @@ class VoiceTyperGUI:
         self.sys_tray.on("doc_translator", self.open_document_translator_window)
         self.sys_tray.on("toggle_pause", self.toggle_auto_pause_media)
         self.sys_tray.on("vram", self.free_vram_action)
+        self.sys_tray.on("updates", self.check_for_updates)
         self.sys_tray.on("quit", self.quit_app)
         self.sys_tray.set_auto_pause_state(self.auto_pause_media)
         self.sys_tray.create()
+
+        # وضعیت به‌روزرسانی + بررسی بی‌صدا در پس‌زمینه هنگام شروع
+        self.update_state = {}
+        self.check_for_updates(show_dialog=False)
 
     # ── پنجره ────────────────────────────────────────────────────
 
@@ -861,6 +866,49 @@ class VoiceTyperGUI:
     def change_engine_language(self, new_lang):
         self.current_lang = new_lang
         self.set_ui_state("idle")
+
+    # ── به‌روزرسانی ────────────────────────────────────────────────
+
+    def check_for_updates(self, show_dialog=True):
+        """بررسی به‌روزرسانی در thread جداگانه و به‌روزرسانی وضعیت/اعلام نتیجه."""
+        def worker():
+            info = updater.check_for_update()
+
+            def finish():
+                self.update_state = info or {}
+                if info and info.get("available"):
+                    try:
+                        self.sys_tray.update_tooltip(
+                            f"نسخهٔ جدید {info['latest']} موجود است — راست‌کلیک تسکبار")
+                    except Exception:
+                        pass
+                    if show_dialog:
+                        self._show_update_dialog(info)
+                elif show_dialog:
+                    self._show_update_dialog(None)
+
+            try:
+                self.root.after(0, finish)
+            except Exception:
+                pass
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_update_dialog(self, info):
+        """نمایش نتیجهٔ چک به‌روزرسانی برای کاربر."""
+        try:
+            from tkinter import messagebox as mb
+        except Exception:
+            return
+        if not info:
+            mb.showinfo("به‌روزرسانی", "در حال حاضر از آخرین نسخه استفاده می‌کنید ✅", parent=self.root)
+            return
+        msg = (f"نسخهٔ جدید **{info['latest']}** در دسترس است.\n\n"
+               f"نسخهٔ فعلی شما: {info['current']}\n"
+               f"ریلیز: {info['url']}")
+        if info.get("download_url"):
+            msg += f"\n\nفایل دانلود: {info['asset_name']}"
+        mb.showinfo("به‌روزرسانی موجود", msg, parent=self.root)
 
     # ── خروج ──────────────────────────────────────────────────────
 

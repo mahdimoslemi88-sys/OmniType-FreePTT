@@ -41,6 +41,7 @@ class SystemTray:
             "doc_translator": None,
             "toggle_pause": None,
             "vram": None,
+            "updates": None,
             "quit": None,
         }
         self._auto_pause_state = True
@@ -83,6 +84,7 @@ class SystemTray:
                 lambda: self._fire("toggle_pause"),
             ),
             pystray.MenuItem("🧹 آزادسازی VRAM", lambda: self._fire("vram")),
+            pystray.MenuItem("🔄 بررسی به‌روزرسانی", lambda: self._fire("updates")),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("❌ خروج کامل از برنامه", lambda: self._fire("quit")),
         )
