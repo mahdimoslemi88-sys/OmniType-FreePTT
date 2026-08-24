@@ -13,7 +13,7 @@ import pyaudio
 import pyperclip
 
 from core import config, updater
-from core.audio import RATE, pcm_to_wav_bytes
+from core.audio import RATE, get_input_level, list_input_devices, pcm_to_wav_bytes
 from core.config import ENV, save_env_dict
 from core.dictionary import CUSTOM_DICT
 from core.hotkey import is_hotkey_held
@@ -68,6 +68,17 @@ class VoiceTyperGUI:
         # توقف خودکار ویدیو/موزیک هنگام صحبت (خواندن از .env)
         self.auto_pause_media = ENV.get("AUTO_PAUSE_MEDIA", "true").strip().lower() in ("1", "true", "yes", "on")
         self.media = MediaController(enabled=self.auto_pause_media)
+        # دستگاه ورودی صوت انتخابی (ایندکس pyaudio؛ اگر خالی باشد پیش‌فرض سیستم)
+        self.input_device_index = None
+        raw_dev = ENV.get("INPUT_DEVICE_INDEX", "")
+        if raw_dev:
+            try:
+                self.input_device_index = int(raw_dev)
+            except (TypeError, ValueError):
+                self.input_device_index = None
+        # شنوندهٔ سطح صدا (پنل کنترل برای نشانگر زنده آن را ثبت می‌کند)
+        self._level_listener = None
+        self._level_throttle = 0
         self.recording_mode = "hotkey"
         self.anim_timer = None
         self.anim_step = 0
@@ -797,13 +808,16 @@ class VoiceTyperGUI:
 
     def record_worker(self):
         self.frames = []
+        self._level_throttle = 0
         try:
             stream = self.p.open(format=pyaudio.paInt16, channels=1, rate=RATE,
-                                 input=True, frames_per_buffer=1024)
+                                 input=True, frames_per_buffer=1024,
+                                 input_device_index=self.input_device_index)
         except Exception as e:
             print(f"Error opening audio stream: {e}")
             self.is_recording = False
             self.set_ui_state("idle")
+            self._notify_level(0.0)
             return
 
         while self.is_recording:
@@ -813,6 +827,7 @@ class VoiceTyperGUI:
             try:
                 data = stream.read(1024, exception_on_overflow=False)
                 self.frames.append(data)
+                self._notify_level(get_input_level(data))
             except Exception:
                 break
 
@@ -826,8 +841,48 @@ class VoiceTyperGUI:
         except Exception:
             pass
 
+        # پایان ضبط → نشانگر سطح صدا صفر شود
+        if self._level_listener:
+            try:
+                self.root.after(0, lambda: self._level_listener(0.0))
+            except Exception:
+                pass
+
         audio_data = b''.join(self.frames)
         self.recognize_audio(audio_data)
+
+    # ── سطح صدا و دستگاه ورودی ────────────────────────────────────
+
+    def _notify_level(self, level):
+        """ارسال سطح صدا به شنونده (پنل کنترل) با کاهش نرخ تا UI سنگین نشود."""
+        if not self._level_listener:
+            return
+        self._level_throttle += 1
+        if self._level_throttle % 3 != 0:
+            return
+        try:
+            self.root.after(0, lambda l=level: self._level_listener(l))
+        except Exception:
+            pass
+
+    def set_level_listener(self, cb):
+        """ثبت شنوندهٔ سطح صدا (پنل کنترل). cb(None) یعنی لغو ثبت."""
+        self._level_listener = cb
+        if cb is None:
+            self._level_throttle = 0
+
+    def set_input_device(self, index):
+        """تنظیم دستگاه ورودی صوت و ذخیره در .env."""
+        try:
+            index = int(index)
+            self.input_device_index = index if index >= 0 else None
+        except (TypeError, ValueError):
+            self.input_device_index = None
+        try:
+            save_env_dict({"INPUT_DEVICE_INDEX": "" if self.input_device_index is None
+                            else str(self.input_device_index)})
+        except Exception:
+            pass
 
     # ── موتور و تنظیمات ──────────────────────────────────────────
 

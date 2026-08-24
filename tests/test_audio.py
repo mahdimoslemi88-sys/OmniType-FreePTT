@@ -1,8 +1,9 @@
-"""تست‌های core/audio.py — تبدیل PCM به WAV معتبر."""
+"""تست‌های core/audio.py — تبدیل PCM به WAV و محاسبهٔ سطح صدا."""
 import io
+import struct
 import wave
 
-from core.audio import CHANNELS, RATE, pcm_to_wav_bytes
+from core.audio import CHANNELS, RATE, get_input_level, pcm_to_wav_bytes
 
 
 def _open(data):
@@ -42,3 +43,27 @@ def test_custom_params_respected():
     w = _open(data)
     assert w.getnchannels() == 2
     assert w.getframerate() == 48000
+
+
+# ── محاسبهٔ سطح صدا ────────────────────────────────────────────────
+
+
+def test_input_level_silence_is_zero():
+    assert get_input_level(b"\x00\x00" * 64) == 0.0
+
+
+def test_input_level_empty_is_zero():
+    assert get_input_level(b"") == 0.0
+
+
+def test_input_level_grows_with_amplitude():
+    quiet = struct.pack("<64h", *([800] * 64))
+    loud = struct.pack("<64h", *([8000] * 64))
+    assert get_input_level(quiet) > 0.0
+    assert get_input_level(loud) > get_input_level(quiet)
+    assert get_input_level(loud) > 0.9
+
+
+def test_input_level_clamped_to_one():
+    full = struct.pack("<64h", *([32000] * 64))
+    assert get_input_level(full) == 1.0

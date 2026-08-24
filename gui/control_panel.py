@@ -101,11 +101,21 @@ class ControlPanel(tk.Toplevel):
         self._refresh_engine_status()
         self._schedule_status_refresh()
 
+        # ثبت پنل به عنوان شنوندهٔ سطح صدا (نشانگر زنده هنگام ضبط)
+        try:
+            self.parent.set_level_listener(self._on_meter_level)
+        except Exception:
+            pass
+
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.focus_force()
         self.lift()
 
     def close(self):
+        try:
+            self.parent.set_level_listener(None)
+        except Exception:
+            pass
         try:
             self.destroy()
         except Exception:
@@ -452,6 +462,30 @@ class ControlPanel(tk.Toplevel):
                   font=("Segoe UI", 10, "bold"), command=self.parent.free_vram_action,
                   cursor="hand2", relief="flat", bd=0, padx=14, pady=9).pack(fill="x", padx=12, pady=3)
 
+        # ── میکروفون ──────────────────────────────────────────────
+        _section(body, "🎙️ میکروفون")
+        tk.Label(body, text="سطح صدای زنده هنگام ضبط:", bg=BG_DARK, fg=TEXT_SECONDARY,
+                 font=("Segoe UI", 9), anchor="w").pack(fill="x", padx=14, pady=(2, 2))
+        self.meter_canvas = tk.Canvas(body, height=14, bg=BG_MID,
+                                      highlightthickness=0, bd=1, relief="flat")
+        self.meter_canvas.pack(fill="x", padx=12, pady=2)
+        self.meter_rect = self.meter_canvas.create_rectangle(0, 0, 0, 14,
+                                                             fill=ACCENT_GREEN, outline="")
+
+        frame_mic = tk.Frame(body, bg=BG_DARK)
+        frame_mic.pack(fill="x", padx=12, pady=(6, 2))
+        tk.Label(frame_mic, text="دستگاه ورودی:", bg=BG_DARK, fg=TEXT_PRIMARY,
+                 font=("Segoe UI", 9)).pack(side="left")
+        self.mic_combo = ttk.Combobox(frame_mic, state="readonly", width=36)
+        self.mic_combo.pack(side="left", padx=6)
+        tk.Button(frame_mic, text="ذخیره", bg=ACCENT_CYAN, fg=BG_DARKER,
+                  font=("Segoe UI", 9, "bold"), command=self._save_mic,
+                  cursor="hand2", relief="flat", bd=0, padx=10, pady=4).pack(side="left")
+        self.mic_label = tk.Label(body, text="", bg=BG_DARK, fg=TEXT_SECONDARY,
+                                  font=("Segoe UI", 9), anchor="w")
+        self.mic_label.pack(fill="x", padx=14, pady=2)
+        self._populate_mics()
+
         _section(body, "🔄 به‌روزرسانی")
         self.update_label = tk.Label(body, text="", bg=BG_DARK, fg=TEXT_SECONDARY,
                                      font=("Segoe UI", 9), anchor="w", wraplength=460, justify="left")
@@ -475,6 +509,61 @@ class ControlPanel(tk.Toplevel):
     def _toggle_pause(self):
         self.parent.toggle_auto_pause_media()
         self.pause_var.set(self.parent.auto_pause_media)
+
+    # ── میکروفون ─────────────────────────────────────────────────
+
+    def _populate_mics(self):
+        """پر کردن کشویی دستگاه‌های ورودی و انتخاب دستگاه فعلی."""
+        devices = []
+        try:
+            pa = getattr(self.parent, "p", None)
+            from core.audio import list_input_devices
+            devices = list_input_devices(pa) if pa else []
+        except Exception:
+            devices = []
+        self._mic_devices = devices
+        self.mic_combo["values"] = [f"{i}: {name}" for i, name in devices]
+        self._set_current_mic(getattr(self.parent, "input_device_index", None))
+
+    def _set_current_mic(self, index):
+        for i, name in self._mic_devices:
+            if i == index:
+                self.mic_combo.set(f"{i}: {name}")
+                return
+        self.mic_combo.set("")
+
+    @staticmethod
+    def _parse_mic_index(text):
+        try:
+            return int(str(text).split(":", 1)[0].strip())
+        except (ValueError, AttributeError):
+            return None
+
+    def _save_mic(self):
+        idx = self._parse_mic_index(self.mic_combo.get())
+        try:
+            self.parent.set_input_device(idx)
+        except Exception:
+            pass
+        if idx is None:
+            self.mic_label.config(text="✅ دستگاه ورودی: (پیش‌فرض سیستم)", fg=ACCENT_GREEN)
+        else:
+            self.mic_label.config(text=f"✅ دستگاه ورودی: {self.mic_combo.get()}", fg=ACCENT_GREEN)
+
+    def _on_meter_level(self, level):
+        """به‌روزرسانی نشانگر سطح صدا (از thread اصلی از طریق root.after)."""
+        try:
+            w = self.meter_canvas.winfo_width()
+            if w <= 2:
+                w = 200
+            h = 14
+            level = max(0.0, min(1.0, level or 0.0))
+            color = ACCENT_RED if level > 0.75 else (ACCENT_YELLOW if level > 0.4 else ACCENT_GREEN)
+            x = max(2, int(level * w))
+            self.meter_canvas.itemconfig(self.meter_rect, fill=color)
+            self.meter_canvas.coords(self.meter_rect, 1, 1, x, h - 1)
+        except Exception:
+            pass
 
     # ── به‌روزرسانی ───────────────────────────────────────────────
 

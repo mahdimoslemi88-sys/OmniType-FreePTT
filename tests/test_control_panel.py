@@ -137,3 +137,25 @@ def test_close_is_safe(panel):
     cp, _stub, _root = panel
     cp.close()
     cp.close()  # دوبار باید بی‌خطر باشد
+
+
+def test_mic_parse_index():
+    assert ControlPanel._parse_mic_index("3: Microphone (Realtek)") == 3
+    assert ControlPanel._parse_mic_index("abc") is None
+    assert ControlPanel._parse_mic_index("") is None
+
+
+def test_mic_section_builds_without_device(panel):
+    cp, _stub, _root = panel
+    # parent بدون `p` چیست → کشویی خالی ساخته می‌شود ولی بدون خطا
+    assert isinstance(list(cp.mic_combo["values"]), list)
+    # نشانگر سطح صدا هم ساخته شده است
+    assert cp.meter_canvas.find_all()
+
+
+def test_meter_level_update_is_safe(panel):
+    cp, _stub, _root = panel
+    # به‌روزرسانی نشانگر در بازهٔ معتبر نباید خطا دهد
+    cp._on_meter_level(0.5)
+    cp._on_meter_level(0.0)
+    cp._on_meter_level(1.0)
