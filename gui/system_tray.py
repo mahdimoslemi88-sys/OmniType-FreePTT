@@ -82,7 +82,7 @@ class SystemTray:
             return
         try:
             image = make_tray_image(32)
-            self._icon = pystray.Icon("OmniType-FreePTT", image, "OmniType v2.1 — آماده", self._build_menu())
+            self._icon = pystray.Icon("OmniType-FreePTT", image, "OmniType v2.2 — آماده", self._build_menu())
             threading.Thread(target=self._icon.run, daemon=True).start()
         except Exception as e:
             print(f"[SystemTray] Error creating icon: {e}")
