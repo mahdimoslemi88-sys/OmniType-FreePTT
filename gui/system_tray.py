@@ -61,19 +61,30 @@ class SystemTray:
             except Exception:
                 pass
 
+    def _fire(self, name):
+        """اجرای امن یک callback — اگر ثبت نشده باشد (None) بی‌صدا نادیده می‌گیرد.
+
+        این امن‌تر از `self._callbacks.get(name, noop)()` است، چون کلیدها با
+        مقدار None از قبل وجود دارند و `.get` در آن حالت None را برمی‌گرداند
+        (و فراخوانی آن کرش می‌کرد).
+        """
+        cb = self._callbacks.get(name)
+        if cb:
+            cb()
+
     def _build_menu(self):
         check = "✓ " if self._auto_pause_state else "   "
         return pystray.Menu(
-            pystray.MenuItem("📚 واژه‌نامه تخصصی", lambda: self._callbacks.get("dict", lambda: None)()),
-            pystray.MenuItem("📄 ترجمه اسناد و متن طولانی", lambda: self._callbacks.get("doc_translator", lambda: None)()),
-            pystray.MenuItem("⚙️ تنظیمات هوش مصنوعی (API)", lambda: self._callbacks.get("api_settings", lambda: None)()),
+            pystray.MenuItem("📚 واژه‌نامه تخصصی", lambda: self._fire("dict")),
+            pystray.MenuItem("📄 ترجمه اسناد و متن طولانی", lambda: self._fire("doc_translator")),
+            pystray.MenuItem("⚙️ تنظیمات هوش مصنوعی (API)", lambda: self._fire("api_settings")),
             pystray.MenuItem(
                 check + "توقف خودکار ویدیو/موزیک هنگام صحبت",
-                lambda: self._callbacks.get("toggle_pause", lambda: None)(),
+                lambda: self._fire("toggle_pause"),
             ),
-            pystray.MenuItem("🧹 آزادسازی VRAM", lambda: self._callbacks.get("vram", lambda: None)()),
+            pystray.MenuItem("🧹 آزادسازی VRAM", lambda: self._fire("vram")),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("❌ خروج کامل از برنامه", lambda: self._callbacks.get("quit", lambda: None)()),
+            pystray.MenuItem("❌ خروج کامل از برنامه", lambda: self._fire("quit")),
         )
 
     def create(self):
