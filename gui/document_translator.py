@@ -75,6 +75,9 @@ class DocumentTranslatorWindow(tk.Toplevel):
         tk.Button(action_row, text="⌨️ تایپ در پنجره قبلی", bg=BG_SURFACE, fg=ACCENT_YELLOW,
                   font=("Segoe UI", 9, "bold"), command=self._type_result,
                   cursor="hand2", padx=10).pack(side="left", padx=4)
+        tk.Button(action_row, text="🔊 پخش صدا", bg=BG_SURFACE, fg=ACCENT_CYAN,
+                  font=("Segoe UI", 9, "bold"), command=self._speak_result,
+                  cursor="hand2", padx=10).pack(side="left", padx=4)
 
         self.focus_force()
         self.lift()
@@ -124,3 +127,18 @@ class DocumentTranslatorWindow(tk.Toplevel):
             pass
         if hasattr(self._app, "safe_type_and_restore_clipboard"):
             self._app.safe_type_and_restore_clipboard(result)
+
+    def _speak_result(self):
+        """خواندن نتیجهٔ ترجمه با صدای سیستم (در thread جداگانه)."""
+        result = self._out_text.get("1.0", "end").strip()
+        if not result:
+            messagebox.showwarning("خطا", "ابتدا متن را ترجمه کنید.", parent=self)
+            return
+        try:
+            from core.tts import speak
+            self._status.config(text="🔊 در حال پخش صدا...")
+            speak(result)
+            # وضعیت پس از کمی تأخیر (بدون بلوک کردن UI)
+            self.after(1200, lambda: self._status.config(text="🔊 در حال پخش..."))
+        except Exception as e:
+            self._status.config(text=f"❌ خطا در پخش صدا: {e}")
