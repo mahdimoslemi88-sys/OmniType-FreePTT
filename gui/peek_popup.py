@@ -10,6 +10,8 @@ class HighlightPeekPopup:
 
     def __init__(self, parent_root, text_original, text_translated, x_cursor, y_cursor, on_replace_callback=None):
         self.top = tk.Toplevel(parent_root)
+        self._is_playing = False
+        self._text_translated = text_translated
         self.top.overrideredirect(True)
         self.top.attributes("-topmost", True)
         self.top.config(bg="#11111b")
@@ -91,6 +93,12 @@ class HighlightPeekPopup:
         btn_copy.pack(side="left", padx=4)
         btn_copy.bind("<Button-1>", lambda e: copy_action())
 
+        # ── دکمهٔ پخش صدا (دوحالته) ──
+        self.btn_speak = tk.Label(btn_frame, text="🔊 صدا", font=("Segoe UI", 9, "bold"),
+                                  bg="#313244", fg="#89dceb", padx=8, pady=4, cursor="hand2")
+        self.btn_speak.pack(side="left", padx=4)
+        self.btn_speak.bind("<Button-1>", lambda e: self._toggle_speak())
+
         if on_replace_callback:
             def replace_action():
                 on_replace_callback(text_translated)
@@ -127,7 +135,54 @@ class HighlightPeekPopup:
         self.top.bind("<Escape>", lambda e: self.close())
         self.top.focus_set()
 
+    def _toggle_speak(self):
+        """پخش/توقف صدای ترجمه — دکمه دوحالته."""
+        if self._is_playing:
+            try:
+                from core.tts import stop_playback
+                stop_playback()
+            except Exception:
+                pass
+            self._is_playing = False
+            self.btn_speak.config(text="🔊 صда", fg="#89dceb")
+            return
+        text = self._text_translated.strip()
+        if not text:
+            return
+        try:
+            from core.tts import speak
+            self._is_playing = True
+            self.btn_speak.config(text="⏹ توقف", fg="#f38ba8")
+            speak(text, on_done=self._on_speak_done)
+        except Exception as e:
+            self._is_playing = False
+            self.btn_speak.config(text="🔊 صда", fg="#89dceb")
+            print(f"[TTS] Error: {e}")
+
+    def _on_speak_done(self, status):
+        """بازگشت به حالت عادی پس از پخش/توقف."""
+        try:
+            self.top.after(0, self._reset_speak_ui)
+        except Exception:
+            pass
+
+    def _reset_speak_ui(self):
+        self._is_playing = False
+        reason = getattr(self, '_last_status_reason', None)
+        try:
+            self.btn_speak.config(text="🔊 صدا", fg="#89dceb")
+        except Exception:
+            pass
+
     def close(self):
+        # توقف هر پخش صوتی جاری هنگام بسته شدن پاپ‌آپ
+        if self._is_playing:
+            try:
+                from core.tts import stop_playback
+                stop_playback()
+            except Exception:
+                pass
+            self._is_playing = False
         try:
             self.top.destroy()
         except Exception:
