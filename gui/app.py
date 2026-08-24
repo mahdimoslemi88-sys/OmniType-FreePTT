@@ -102,6 +102,11 @@ class VoiceTyperGUI:
         self.canvas.bind("<Button-1>", self.on_left_click)
         self.canvas.bind("<Button-3>", self.show_context_menu)
 
+        # ── تم رنگی ──────────────────────────────────────────────────
+        from gui.theme import set_theme as _set_theme
+        _saved_theme = ENV.get("THEME", "catppuccin").strip().lower()
+        _set_theme(_saved_theme)
+
         self.is_recording = False
         self.frames = []
         self.p = pyaudio.PyAudio()
@@ -386,6 +391,20 @@ class VoiceTyperGUI:
             updates["VAD_THRESHOLD"] = str(self.vad_threshold)
         try:
             save_env_dict(updates)
+        except Exception:
+            pass
+
+    def set_theme(self, theme_name: str):
+        """تغییر تم رنگی و ذخیره در .env."""
+        from gui.theme import set_theme as _set_theme
+        _set_theme(theme_name)
+        try:
+            save_env_dict({"THEME": theme_name})
+        except Exception:
+            pass
+        # به‌روزرسانی tooltip تسکبار
+        try:
+            self.sys_tray.update_tooltip_theme(theme_name)
         except Exception:
             pass
 

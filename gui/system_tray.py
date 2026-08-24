@@ -116,6 +116,11 @@ class SystemTray:
         today_part = f" · {today_words} امروز" if today_words > 0 else ""
         self.update_tooltip(f"📝 {total_words}{today_part} — OmniType v2.3")
 
+    def update_tooltip_theme(self, theme_name):
+        """به‌روزرسانی tooltip پس از تغییر تم (برای نمایش نام تم جدید)."""
+        theme_label = {"midnight": "🌙 Midnight"}.get(theme_name, "🎨 Catppuccin")
+        self.update_tooltip(f"OmniType v2.3 ({theme_label}) — آماده")
+
     def stop(self):
         icon = self._icon
         self._icon = None

@@ -597,6 +597,24 @@ class ControlPanel(tk.Toplevel):
     def _build_settings_tab(self):
         body = make_scrollable(self.tab_settings)
 
+        # ── تم رنگی ──────────────────────────────────────────────
+        from gui.theme import THEME_NAMES, get_theme_name, set_theme as _set_theme
+        _section(body, "🎨 تم رنگی")
+        self._theme_var = tk.StringVar(value=get_theme_name())
+        theme_frame = tk.Frame(body, bg=BG_DARK)
+        theme_frame.pack(fill="x", padx=12, pady=4)
+        for key, label in THEME_NAMES.items():
+            rb = tk.Radiobutton(
+                theme_frame, text=label, variable=self._theme_var, value=key,
+                bg=BG_DARK, fg=TEXT_PRIMARY, selectcolor=BG_MID,
+                activebackground=BG_DARK, activeforeground=TEXT_BRIGHT,
+                font=("Segoe UI", 10), command=self._apply_theme, anchor="w",
+                padx=10, pady=4)
+            rb.pack(fill="x", anchor="w")
+        self._theme_status = tk.Label(body, text="", bg=BG_DARK, fg=TEXT_SECONDARY,
+                                       font=("Segoe UI", 9), anchor="w")
+        self._theme_status.pack(fill="x", padx=14, pady=2)
+
         _section(body, "ویدیو / موزیک")
         self.pause_var = tk.BooleanVar(value=self.parent.auto_pause_media)
         chk = tk.Checkbutton(body, text="⏸️ توقف خودکار ویدیو/موزیک هنگام صحبت",
@@ -734,6 +752,29 @@ class ControlPanel(tk.Toplevel):
                 text=f"✅ فعال — توقف پس از {t}s سکوت", fg=ACCENT_GREEN)
         else:
             self.vad_status_label.config(text="غیرفعال", fg=TEXT_SECONDARY)
+
+    # ── تم ──────────────────────────────────────────────────────
+
+    def _apply_theme(self):
+        """اعمال تم انتخاب‌شده: ذخیره + بازسازی تب تنظیمات."""
+        from gui.theme import set_theme as _set_theme, THEME_NAMES
+        name = self._theme_var.get()
+        _set_theme(name)
+        try:
+            self.parent.set_theme(name)
+        except Exception:
+            pass
+        label = THEME_NAMES.get(name, name)
+        self._theme_status.config(text=f"✅ تم «{label}» اعمال شد — برای تأثیر کامل پنجره را باز کنید", fg=ACCENT_GREEN)
+        # بازسازی تب تنظیمات با رنگ‌های جدید
+        self._rebuild_settings_tab()
+
+    def _rebuild_settings_tab(self):
+        """بازسازی محتوای تب تنظیمات با تم جدید."""
+        _configure_notebook_style()
+        for w in self.tab_settings.winfo_children():
+            w.destroy()
+        self._build_settings_tab()
 
     # ── آمار ─────────────────────────────────────────────────────
 
