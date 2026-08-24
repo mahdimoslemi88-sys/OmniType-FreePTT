@@ -17,6 +17,7 @@ __pycache__/
 build/
 dist/
 *.spec
+!OmniType-v2.spec
 
 # Environment & Sensitive Configs
 .env

@@ -1,0 +1,59 @@
+# ============================================================================
+# OmniType-FreePTT — Build & Release EXE on tag push
+#
+# پس از زدن هر تگ v* (مثل v2.1.0) به‌صورت خودکار:
+#   1) نصب پایتون + وابستگی‌ها + PyInstaller روی Windows
+#   2) ساخت اگز از سورس با OmniType-v2.spec
+#   3) فشرده‌سازی پوشه بیلد به zip
+#   4) ساخت/به‌روزرسانی ریلیز همان تگ و آپلود پکیج
+# ============================================================================
+name: Build Windows EXE on tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:        # اجازه اجرای دستی برای تست
+
+permissions:
+  contents: write           # نیاز برای ساخت ریلیز و آپلود asset
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      - name: Build EXE with PyInstaller
+        run: python -m PyInstaller OmniType-v2.spec --noconfirm
+
+      - name: Package release zip
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force dist/OmniType-FreePTT/*.json -ErrorAction SilentlyContinue
+          $zip = "dist/OmniType-FreePTT-${{ github.ref_name }}.zip"
+          Compress-Archive -Path "dist/OmniType-FreePTT/*" -DestinationPath $zip -Force
+          Write-Host "Created: $zip"
+
+      - name: Create/update release and upload asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: OmniType-FreePTT ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+          files: dist/OmniType-FreePTT-v*.zip
