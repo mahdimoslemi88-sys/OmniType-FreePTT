@@ -283,12 +283,12 @@ class VoiceTyperGUI:
         # به‌روزرسانی tooltip آیکون تسک‌بار با وضعیت جاری
         try:
             state_titles = {
-                "idle": "OmniType v2.1 — آماده",
-                "recording": "OmniType v2.1 — در حال ضبط...",
-                "processing": "OmniType v2.1 — در حال پردازش...",
-                "success": "OmniType v2.1 — تایپ شد ✓",
+                "idle": "OmniType v2.2 — آماده",
+                "recording": "OmniType v2.2 — در حال ضبط...",
+                "processing": "OmniType v2.2 — در حال پردازش...",
+                "success": "OmniType v2.2 — تایپ شد ✓",
             }
-            self.sys_tray.update_tooltip(state_titles.get(state, "OmniType v2.1"))
+            self.sys_tray.update_tooltip(state_titles.get(state, "OmniType v2.2"))
         except Exception:
             pass
 
@@ -735,7 +735,23 @@ class VoiceTyperGUI:
 
             if text:
                 if self.current_lang == "prompt_engineer":
-                    text = AIPromptEngineer.generate_engineered_prompt(text)
+                    try:
+                        text = AIPromptEngineer.generate_engineered_prompt(text)
+                    except Exception as e:
+                        # در exe کنسول دیده نمی‌شود؛ خطا را برای کاربر نشان بده
+                        err = str(e)
+                        self.set_ui_state("idle")
+
+                        def _notify():
+                            try:
+                                import tkinter.messagebox as mb
+                                mb.showerror("مهندسی پرامپت",
+                                             f"خطا در ساخت پرامپت مهندسی‌شده:\n{err}",
+                                             parent=self.root)
+                            except Exception:
+                                pass
+                        self.root.after(0, _notify)
+                        return
                 elif self.current_lang in ["translate_fa_en", "translate_en_fa"]:
                     mode = "fa_to_en" if self.current_lang == "translate_fa_en" else "en_to_fa"
                     text = LLMTranslatorEngine.translate(text, mode=mode)
