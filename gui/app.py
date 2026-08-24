@@ -816,10 +816,14 @@ class VoiceTyperGUI:
                 self.history.append(text)
                 self.safe_type_and_restore_clipboard(text)
                 self.set_ui_state("success")
-                # ── ثبت آمار ──
+                # ── ثبت آمار + به‌روزرسانی تسک‌بار ──
                 try:
                     elapsed = time.time() - getattr(self, "_recording_start", time.time())
                     stats.record_typing(text, engine=self.current_engine, duration_sec=elapsed)
+                    _data = stats.get_stats()
+                    _today = __import__("datetime").date.today().isoformat()
+                    _tw = _data.get("daily_history", {}).get(_today, {}).get("words", 0)
+                    self.sys_tray.set_stats(_data["total_words"], _tw)
                 except Exception:
                     pass
             else:

@@ -98,3 +98,37 @@ def test_stop_safe_with_fake_icon(monkeypatch):
     # صفر یا یک thread برای توقف — فقط مطمئن می‌شویم بدون خطا اجرا شد
     tray.stop()
     assert True
+
+
+def test_set_stats_updates_tooltip_without_icon():
+    tray = SystemTray()
+    # بدون icon — نباید خطا بدهد
+    tray.set_stats(123, 5)
+
+
+def test_set_stats_zero_words_shows_generic_tooltip(monkeypatch):
+    tray = SystemTray()
+    updated = []
+    monkeypatch.setattr(tray, "update_tooltip", lambda t: updated.append(t))
+    tray.set_stats(0, 0)
+    assert updated and "OmniType v2.2" in updated[0]
+    assert "0" not in updated[0]
+
+
+def test_set_stats_with_words_shows_summary(monkeypatch):
+    tray = SystemTray()
+    updated = []
+    monkeypatch.setattr(tray, "update_tooltip", lambda t: updated.append(t))
+    tray.set_stats(150, 12)
+    assert updated and "150" in updated[0]
+    assert "12" in updated[0]
+    assert "امروز" in updated[0]
+
+
+def test_set_stats_zero_today_omits_today_part(monkeypatch):
+    tray = SystemTray()
+    updated = []
+    monkeypatch.setattr(tray, "update_tooltip", lambda t: updated.append(t))
+    tray.set_stats(50, 0)
+    assert updated and "امروز" not in updated[0]
+    assert "50" in updated[0]

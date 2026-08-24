@@ -108,6 +108,14 @@ class SystemTray:
             except Exception:
                 pass
 
+    def set_stats(self, total_words, today_words):
+        """به‌روزرسانی tooltip با خلاصهٔ آمار — نمایش بدون نیاز به باز کردن پنل."""
+        if total_words <= 0:
+            self.update_tooltip("OmniType v2.2 — آماده")
+            return
+        today_part = f" · {today_words} امروز" if today_words > 0 else ""
+        self.update_tooltip(f"📝 {total_words}{today_part} — OmniType v2.2")
+
     def stop(self):
         icon = self._icon
         self._icon = None
