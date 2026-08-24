@@ -258,3 +258,109 @@ def test_speak_online_play_failure_returns_false(monkeypatch):
     monkeypatch.setattr(tts.edge_tts, "Communicate", _FakeComm)
     monkeypatch.setattr(tts, "_play_mp3", lambda p: False)
     assert tts._speak_online("سلام") is False
+
+
+# ── توقف / پخش دوباره ────────────────────────────────────────────
+
+
+def test_stop_playback_sets_flag_and_stops_engine(monkeypatch):
+    stopped = []
+
+    class _StoppableEngine(_WorkingEngine):
+        def stop(self):
+            stopped.append(1)
+            super().stop()
+
+    engine = _StoppableEngine([_FakeVoice(EN_DAVID)])
+    monkeypatch.setattr(tts, "_current_engine", engine)
+    monkeypatch.setattr(tts, "_stop_requested", tts.threading.Event())
+    tts.stop_playback()
+    assert tts._stop_requested.is_set()
+    assert stopped == [1]  # engine.stop صدا زده شد
+    # بدون engine → فقط پرچم ست می‌شود، خطا نمی‌دهد
+    monkeypatch.setattr(tts, "_current_engine", None)
+    monkeypatch.setattr(tts, "_stop_requested", tts.threading.Event())
+    tts.stop_playback()
+    assert tts._stop_requested.is_set()
+
+
+def test_speak_local_reports_stopped_when_interrupted(monkeypatch):
+    """اگر هنگام پخش محلی توقف بخواهیم، وضعیت reason=stopped برگردد."""
+    monkeypatch.setattr(tts, "_HAS_PYTTSX3", True)
+    monkeypatch.setattr(tts, "_HAS_EDGE", True)
+    engine = _WorkingEngine([_FakeVoice(EN_DAVID)])
+    monkeypatch.setattr(tts.pyttsx3, "init", lambda: engine)
+
+    # شبیه‌سازی: هنگام پخش، کاربر توقف می‌خواهد → پرچم وسط runAndWait ست می‌شود
+    def run_and_interrupt():
+        tts._stop_requested.set()
+        engine.waited += 1
+
+    engine.runAndWait = run_and_interrupt
+    done = []
+    tts.speak("Hello", wait=True, on_done=done.append)
+    assert done and done[0]["reason"] == "stopped"
+    assert done[0]["source"] == "none"
+
+
+def test_speak_resets_stop_flag_for_play_again(monkeypatch):
+    """پخش دوباره بعد از توقف: پرچم پاک می‌شود و پخش عادی ادامه می‌یابد."""
+    monkeypatch.setattr(tts, "_HAS_PYTTSX3", True)
+    monkeypatch.setattr(tts, "_HAS_EDGE", False)
+    engine = _WorkingEngine([_FakeVoice(EN_DAVID)])
+    monkeypatch.setattr(tts.pyttsx3, "init", lambda: engine)
+    tts._stop_requested.set()  # توقف قبلی
+    done = []
+    tts.speak("Hello again", wait=True, on_done=done.append)
+    # پرچم در شروع پخش پاک شده → پخش کامل انجام شده
+    assert tts._stop_requested.is_set() is False
+    assert engine.said == ["Hello again"]
+    assert done and done[0]["source"] == "local"
+
+
+def test_speak_online_stops_between_chunks(monkeypatch):
+    """پرچم توقف بین قطعات آنلاین باعث توقف می‌شود."""
+    monkeypatch.setattr(tts, "_HAS_EDGE", True)
+    saved = []
+
+    class _FakeComm:
+        def __init__(self, text, voice=None):
+            self.text = text
+            self.voice = voice
+
+        async def save(self, path):
+            saved.append(self.text)
+            with open(path, "wb") as f:
+                f.write(b"MP3DATA")
+
+    monkeypatch.setattr(tts.edge_tts, "Communicate", _FakeComm)
+    monkeypatch.setattr(tts, "_play_mp3", lambda p: True)
+    # بعد از قطعهٔ اول توقف بخواهیم
+    orig = tts._speak_online
+
+    def stop_after_first(chunks):
+        tts._stop_requested.set()
+
+    long_text = " ".join("کلمه%d" % i for i in range(300))
+    # اجرای مستقیم: پرچم را بعد از اولین پخش ست می‌کنیم با monkeypatch کردن _play_mp3
+    play_calls = []
+
+    def fake_play(path):
+        play_calls.append(path)
+        if len(play_calls) == 1:
+            tts._stop_requested.set()
+        return True
+
+    monkeypatch.setattr(tts, "_play_mp3", fake_play)
+    tts._stop_requested.clear()
+    assert tts._speak_online(long_text) is True
+    assert len(saved) == 1  # فقط یک قطعه ساخته شد؛ قطعات بعدی متوقف شدند
+    assert len(play_calls) == 1  # فقط یک قطعه پخش شد
+
+
+def test_stop_playback_without_playback_is_safe():
+    tts._current_engine = None
+    tts._stop_requested = tts.threading.Event()
+    tts.stop_playback()  # نباید exception بدهد
+    assert tts._stop_requested.is_set()
+    tts._stop_requested.clear()

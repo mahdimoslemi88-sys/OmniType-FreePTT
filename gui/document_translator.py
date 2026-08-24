@@ -131,8 +131,17 @@ class DocumentTranslatorWindow(tk.Toplevel):
             self._app.safe_type_and_restore_clipboard(result)
 
     def _speak_result(self):
-        """خواندن نتیجهٔ ترجمه با صدای سیستم یا صدای آنلاین فارسی (در thread جداگانه)."""
+        """پخش/توقف صدا: اگر در حال پخش است → توقف، وگرنه شروع پخش."""
         if self._is_playing:
+            # توقف فوری پخش جاری
+            try:
+                from core.tts import stop_playback
+                stop_playback()
+            except Exception:
+                pass
+            self._is_playing = False
+            self.btn_speak.config(state="normal", text="🔊 پخش صدا")
+            self._status.config(text="⏹ پخش متوقف شد")
             return
         result = self._out_text.get("1.0", "end").strip()
         if not result:
@@ -141,13 +150,14 @@ class DocumentTranslatorWindow(tk.Toplevel):
         try:
             from core.tts import speak
             self._is_playing = True
-            self.btn_speak.config(state="disabled", text="🔊 در حال پخش...")
+            self.btn_speak.config(state="normal", text="⏹ توقف پخش")
             self._status.config(text="🔊 در حال پخش صدا...")
             speak(result, on_done=self._on_speak_done)
         except Exception as e:
             self._is_playing = False
             self.btn_speak.config(state="normal", text="🔊 پخش صدا")
             self._status.config(text=f"❌ خطا در پخش صدا: {e}")
+
 
     def _on_speak_done(self, status):
         """نتیجهٔ پخش صدا — از thread کارگر صدا زده می‌شود، پس به thread اصلی منتقل می‌شود."""
@@ -169,6 +179,8 @@ class DocumentTranslatorWindow(tk.Toplevel):
             self._status.config(text="🔊 پخش با صدای آنلاین فارسی (نیاز به اینترنت)")
         elif status.get("reason") == "empty":
             self._status.config(text="")
+        elif status.get("reason") == "stopped":
+            self._status.config(text="⏹ پخش متوقف شد")
         else:
             # صدای محلی موجود نیست و صدای آنلاین در دسترس نبود → راهنما
             self._status.config(text="❌ صدای فارسی در دسترس نیست")

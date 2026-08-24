@@ -37,6 +37,34 @@ PERSIAN_VOICES = ("fa-IR-DilaraNeural", "fa-IR-FaridNeural")
 # حداکثر طول هر قطعه برای سرویس آنلاین (کوتاه‌تر از سقف سرویس تا امن باشد)
 _ONLINE_CHUNK_MAX = 900
 
+# ── حالت پخش قابل توقف ───────────────────────────────────────────
+# `_stop_requested` از هر thread با `stop_playback()` ست می‌شود؛
+# حلقه‌های پخش (SAPI و MCI) آن را چک و متوقف می‌شوند.
+_stop_requested = threading.Event()
+# ارجاع به موتور pyttsx3 در حال پخش تا `stop_playback` بتواند آن را متوقف کند
+_current_engine = None
+
+
+def stop_playback():
+    """توقف فوری هر پخش صوتی در حال انجام."""
+    _stop_requested.set()
+    engine = _current_engine
+    if engine is not None:
+        try:
+            engine.stop()
+        except Exception:
+            pass
+
+
+def is_playing():
+    """آیا در حال حاضر پخشی در جریان است؟"""
+    return _current_engine is not None
+
+
+def _reset_stop_flag():
+    """پاک‌سازی پرچم توقف در شروع هر پخش جدید."""
+    _stop_requested.clear()
+
 
 def is_persian(text):
     """آیا متن شامل حروف فارسی است؟"""
@@ -92,7 +120,12 @@ def has_persian_voice():
 
 
 def _play_mp3(path):
-    """پخش فایل MP3 با MCI ویندوز (بدون وابستگی اضافه). برمی‌گرداند موفقیت."""
+    """پخش فایل MP3 با MCI ویندوز (بدون وابستگی اضافه) با قابلیت توقف.
+
+    به‌جای `wait` بلوکه، وضعیت پخش را در حلقه چک می‌کند تا با
+    `stop_playback()` بتوان فوراً متوقف کرد. برمی‌گرداند موفقیت.
+    """
+    import time
     try:
         import ctypes
         mci = ctypes.windll.winmm.mciSendStringW
@@ -100,8 +133,14 @@ def _play_mp3(path):
         if mci(f'open "{path}" alias omni_tts', err_buf, 256, 0) != 0:
             return False
         try:
-            rc = mci("play omni_tts wait", err_buf, 256, 0)
-            return rc == 0
+            mci("play omni_tts", err_buf, 256, 0)
+            while not _stop_requested.is_set():
+                mode_buf = ctypes.create_unicode_buffer(32)
+                mci("status omni_tts mode", mode_buf, 32, 0)
+                if mode_buf.value.strip().lower() not in ("playing", "paused"):
+                    break
+                time.sleep(0.05)
+            return True
         finally:
             mci("close omni_tts", err_buf, 256, 0)
     except Exception:
@@ -135,6 +174,9 @@ def _speak_online(text):
     chunks = _chunk_text(text)
     ok = False
     for chunk in chunks:
+        # اگر بین قطعات توقف خواسته شد، پخش را متوقف کن
+        if _stop_requested.is_set():
+            break
         path = None
         try:
             fd, path = tempfile.mkstemp(suffix=".mp3")
@@ -164,12 +206,15 @@ def speak(text, wait=False, on_done=None):
 
     - اجرا در thread جداگانه (wait=False) تا GUI مسدود نشود.
     - ورودی خالی → هیچ.
-    - `on_done(status)` بعد از پایان پخش در همان thread صدا زده می‌شود:
+    - هر پخش جدید پرچم توقف قبلی را پاک می‌کند؛ `stop_playback()` می‌تواند
+      هر پخشی را فوراً متوقف کند.
+    - `on_done(status)` بعد از پایان (یا توقف) پخش در همان thread صدا زده می‌شود:
         status = {"source": "local"|"online"|"none",
                   "lang": "fa"|"en"|None,
-                  "reason": None|"empty"|"online_failed"|"no_local_voice"}
+                  "reason": None|"empty"|"online_failed"|"no_local_voice"|"stopped"}
       UI می‌تواند از این برای نمایش راهنمای نصب صدای فارسی استفاده کند.
     """
+    global _current_engine
     status = {"source": "none", "lang": None, "reason": None}
     if not text or not text.strip():
         status["reason"] = "empty"
@@ -180,25 +225,32 @@ def speak(text, wait=False, on_done=None):
     fa = is_persian(text)
 
     def worker():
+        global _current_engine
         result = dict(status)
+        _reset_stop_flag()
 
         # ── مسیر محلی SAPI ──────────────────────────────────────
         if _HAS_PYTTSX3:
             engine = None
             try:
                 engine = pyttsx3.init()
+                _current_engine = engine
                 voice = _pick_voice(engine, text)
                 if voice:
                     engine.setProperty("voice", voice)
                 engine.say(text)
                 engine.runAndWait()
-                result = {"source": "local", "lang": "fa" if fa else "en", "reason": None}
+                if _stop_requested.is_set():
+                    result = {"source": "none", "lang": "fa" if fa else "en", "reason": "stopped"}
+                else:
+                    result = {"source": "local", "lang": "fa" if fa else "en", "reason": None}
                 if on_done:
                     on_done(result)
                 return
             except Exception as e:
                 print(f"[TTS] Local voice failed: {e}")
             finally:
+                _current_engine = None
                 if engine is not None:
                     try:
                         engine.stop()
@@ -208,18 +260,23 @@ def speak(text, wait=False, on_done=None):
         # ── فارسی بدون صدای محلی → صدای آنلاین ───────────────────
         if fa and _HAS_EDGE:
             if _speak_online(text):
-                result = {"source": "online", "lang": "fa", "reason": None}
+                if _stop_requested.is_set():
+                    result = {"source": "none", "lang": "fa", "reason": "stopped"}
+                else:
+                    result = {"source": "online", "lang": "fa", "reason": None}
                 if on_done:
                     on_done(result)
                 return
-            result = {"source": "none", "lang": "fa", "reason": "online_failed"}
+            result = {"source": "none", "lang": "fa",
+                      "reason": "stopped" if _stop_requested.is_set() else "online_failed"}
             if on_done:
                 on_done(result)
             return
 
         # ── هیچ راهی نبود ────────────────────────────────────────
         result = {"source": "none", "lang": "fa" if fa else "en",
-                  "reason": "online_failed" if fa else "no_local_voice"}
+                  "reason": "stopped" if _stop_requested.is_set()
+                  else ("online_failed" if fa else "no_local_voice")}
         if on_done:
             on_done(result)
 
