@@ -28,6 +28,7 @@ class _StubParent:
         self.vad_enabled = False
         self.vad_silence_timeout = 1.5
         self.vad_threshold = 0.02
+        self.whisper_model_size = "base"
         self.change_calls = []
 
     def change_engine(self, name):
@@ -54,6 +55,7 @@ class _StubParent:
     quit_app = _noop
     toggle_vad = _noop
     set_vad_settings = _noop
+    set_whisper_model = _noop
 
     def translate_manual_action(self, mode):
         pass

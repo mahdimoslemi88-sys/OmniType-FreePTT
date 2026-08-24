@@ -77,6 +77,8 @@ class VoiceTyperGUI:
             self.vad_threshold = float(ENV.get("VAD_THRESHOLD", "0.02"))
         except (TypeError, ValueError):
             self.vad_threshold = 0.02
+        # ── مدل محلی Whisper ──────────────────────────────────────
+        self.whisper_model_size = ENV.get("WHISPER_MODEL_SIZE", "base").strip() or "base"
         self.media = MediaController(enabled=self.auto_pause_media)
         # دستگاه ورودی صوت انتخابی (ایندکس pyaudio؛ اگر خالی باشد پیش‌فرض سیستم)
         self.input_device_index = None
@@ -982,7 +984,7 @@ class VoiceTyperGUI:
             self.current_engine = "local"
             self.active_engine_name = ""
             if HAS_FASTER_WHISPER:
-                LOCAL_WHISPER.preload_model_async("large-v3-turbo")
+                LOCAL_WHISPER.preload_model_async(self.whisper_model_size)
         else:
             # موتور سفارشی از لیست — فعال‌سازی و ذخیره در .env
             try:
@@ -1000,6 +1002,18 @@ class VoiceTyperGUI:
         self.current_engine = "google"
         self.active_engine_name = ""
         self.set_ui_state("idle")
+
+    def set_whisper_model(self, model_size: str):
+        """تغییر سایز مدل محلی Whisper و ذخیره در .env."""
+        self.whisper_model_size = model_size
+        try:
+            save_env_dict({"WHISPER_MODEL_SIZE": model_size})
+        except Exception:
+            pass
+        # اگر مدل قبلاً لود شده، آن را ری‌لود کن
+        if self.current_engine == "local" and LOCAL_WHISPER.model is not None:
+            LOCAL_WHISPER.unload_model()
+            LOCAL_WHISPER.preload_model_async(model_size)
 
     def change_global_hotkey(self, new_key):
         self.current_hotkey = new_key

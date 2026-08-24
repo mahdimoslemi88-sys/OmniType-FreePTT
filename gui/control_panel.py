@@ -703,6 +703,53 @@ class ControlPanel(tk.Toplevel):
                   font=("Segoe UI", 9, "bold"), command=self._check_updates,
                   cursor="hand2", relief="flat", bd=0, padx=10, pady=6).pack(fill="x", padx=12, pady=6)
 
+        # ── مدل محلی Whisper ──────────────────────────────────────
+        from engine.local_whisper import HAS_FASTER_WHISPER, LOCAL_WHISPER
+        _section(body, "🖥️ مدل محلی Whisper (آفلاین)")
+        if not HAS_FASTER_WHISPER:
+            tk.Label(body,
+                    text="⚠️ کتابخانه faster-whisper نصب نیست.\n"
+                         "برای فعال‌سازی حالت آفلاین اجرا کنید:\n"
+                         "pip install faster-whisper",
+                    bg=BG_DARK, fg=ACCENT_YELLOW,
+                    font=("Segoe UI", 9), anchor="w", justify="left",
+                    wraplength=460).pack(fill="x", padx=14, pady=4)
+        else:
+            tk.Label(body,
+                    text="تشخیص گفتار کاملاً محلی و بدون اینترنت. "
+                         "مدل اولین بار از HuggingFace دانلود می‌شود.",
+                    bg=BG_DARK, fg=TEXT_SECONDARY,
+                    font=("Segoe UI", 9), anchor="w", justify="left",
+                    wraplength=460).pack(fill="x", padx=14, pady=(2, 6))
+            # انتخاب سایز مدل
+            model_row = tk.Frame(body, bg=BG_DARK)
+            model_row.pack(fill="x", padx=12, pady=2)
+            tk.Label(model_row, text="سایز مدل:", bg=BG_DARK, fg=TEXT_PRIMARY,
+                     font=("Segoe UI", 9)).pack(side="left")
+            model_sizes = ["tiny", "base", "small", "medium", "large-v3-turbo"]
+            self._whisper_size_var = tk.StringVar(value=self.parent.whisper_model_size)
+            model_combo = ttk.Combobox(model_row, textvariable=self._whisper_size_var,
+                                       values=model_sizes, state="readonly", width=16)
+            model_combo.pack(side="left", padx=6)
+            tk.Button(model_row, text="ذخیره", bg=ACCENT_CYAN, fg=BG_DARKER,
+                      font=("Segoe UI", 9, "bold"), command=self._save_whisper_model,
+                      cursor="hand2", relief="flat", bd=0, padx=10, pady=4).pack(side="left", padx=4)
+            # وضعیت مدل
+            self._whisper_status = tk.Label(body, text="", bg=BG_DARK,
+                                            fg=TEXT_SECONDARY, font=("Segoe UI", 9),
+                                            anchor="w", wraplength=460)
+            self._whisper_status.pack(fill="x", padx=14, pady=2)
+            # دکمه‌های بارگذاری/آزادسازی
+            preload_row = tk.Frame(body, bg=BG_DARK)
+            preload_row.pack(fill="x", padx=12, pady=4)
+            tk.Button(preload_row, text="⬇️ بارگذاری مدل", bg=ACCENT_GREEN, fg=BG_DARKER,
+                      font=("Segoe UI", 9, "bold"), command=self._preload_whisper,
+                      cursor="hand2", relief="flat", bd=0, padx=10, pady=6).pack(side="left", padx=4)
+            tk.Button(preload_row, text="🗑️ آزادسازی VRAM", bg=ACCENT_RED, fg=BG_DARKER,
+                      font=("Segoe UI", 9, "bold"), command=self._unload_whisper,
+                      cursor="hand2", relief="flat", bd=0, padx=10, pady=6).pack(side="left", padx=4)
+            self._refresh_whisper_status()
+
         _section(body, "📤/📥 تنظیمات")
         exp_row = tk.Frame(body, bg=BG_DARK)
         exp_row.pack(fill="x", padx=12, pady=3)
@@ -775,6 +822,59 @@ class ControlPanel(tk.Toplevel):
         for w in self.tab_settings.winfo_children():
             w.destroy()
         self._build_settings_tab()
+
+    # ── مدل محلی Whisper ────────────────────────────────────────
+
+    def _save_whisper_model(self):
+        size = self._whisper_size_var.get()
+        self.parent.set_whisper_model(size)
+        self._whisper_status.config(
+            text=f"✅ سایز «{size}» ذخیره شد — در دفعهٔ بعدی بارگذاری می‌شود", fg=ACCENT_GREEN)
+
+    def _preload_whisper(self):
+        from engine.local_whisper import HAS_FASTER_WHISPER, LOCAL_WHISPER
+        if not HAS_FASTER_WHISPER:
+            return
+        if LOCAL_WHISPER.is_loading:
+            self._whisper_status.config(text="⏳ مدل در حال بارگذاری...", fg=ACCENT_YELLOW)
+            return
+        size = self._whisper_size_var.get()
+        LOCAL_WHISPER.preload_model_async(size)
+        self._whisper_status.config(text=f"⏳ بارگذاری مدل «{size}» — اولین بار دانلود می‌شود...",
+                                     fg=ACCENT_YELLOW)
+        # بررسی دوره‌ای وضعیت
+        self._poll_whisper_loading()
+
+    def _poll_whisper_loading(self):
+        """بررسی دوره‌ای وضعیت بارگذاری مدل."""
+        from engine.local_whisper import LOCAL_WHISPER
+        if LOCAL_WHISPER.is_loading:
+            self.after(1000, self._poll_whisper_loading)
+        else:
+            self._refresh_whisper_status()
+
+    def _unload_whisper(self):
+        from engine.local_whisper import LOCAL_WHISPER
+        LOCAL_WHISPER.unload_model()
+        self._refresh_whisper_status()
+
+    def _refresh_whisper_status(self):
+        from engine.local_whisper import HAS_FASTER_WHISPER, LOCAL_WHISPER
+        if not HAS_FASTER_WHISPER or not hasattr(self, "_whisper_status"):
+            return
+        if LOCAL_WHISPER.is_loading:
+            self._whisper_status.config(text="⏳ در حال بارگذاری مدل...", fg=ACCENT_YELLOW)
+        elif LOCAL_WHISPER.model is not None:
+            size = self.parent.whisper_model_size
+            self._whisper_status.config(
+                text=f"✅ مدل «{size}» آماده — کاملاً آفلاین", fg=ACCENT_GREEN)
+        elif LOCAL_WHISPER.load_error:
+            self._whisper_status.config(
+                text=f"❌ خطا: {LOCAL_WHISPER.load_error}", fg=ACCENT_RED)
+        else:
+            self._whisper_status.config(
+                text="⬜ مدل بارگذاری نشده — دکمهٔ «بارگذاری» را بزنید",
+                fg=TEXT_SECONDARY)
 
     # ── آمار ─────────────────────────────────────────────────────
 
@@ -1021,5 +1121,6 @@ class ControlPanel(tk.Toplevel):
             self._refresh_update_status()
             self._refresh_stats_ui()
             self._draw_stats_chart()
+            self._refresh_whisper_status()
         except Exception:
             pass
