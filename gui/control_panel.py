@@ -494,6 +494,19 @@ class ControlPanel(tk.Toplevel):
                   font=("Segoe UI", 9, "bold"), command=self._check_updates,
                   cursor="hand2", relief="flat", bd=0, padx=10, pady=6).pack(fill="x", padx=12, pady=6)
 
+        _section(body, "📤/📥 تنظیمات")
+        exp_row = tk.Frame(body, bg=BG_DARK)
+        exp_row.pack(fill="x", padx=12, pady=3)
+        tk.Button(exp_row, text="📤 خروجی تنظیمات", bg=ACCENT_BLUE, fg=BG_DARKER,
+                  font=("Segoe UI", 9, "bold"), command=self._export_settings,
+                  cursor="hand2", relief="flat", bd=0, padx=10, pady=6).pack(side="left", padx=4)
+        tk.Button(exp_row, text="📥 ورودی تنظیمات", bg=ACCENT_ORANGE, fg=BG_DARKER,
+                  font=("Segoe UI", 9, "bold"), command=self._import_settings,
+                  cursor="hand2", relief="flat", bd=0, padx=10, pady=6).pack(side="left", padx=4)
+        self.export_import_label = tk.Label(body, text="", bg=BG_DARK, fg=TEXT_SECONDARY,
+                                            font=("Segoe UI", 9), anchor="w")
+        self.export_import_label.pack(fill="x", padx=14, pady=2)
+
         _section(body, "دیگر")
         tk.Button(body, text="🧪 تست اتصال موتور فعال (LLM)", bg=BG_SURFACE, fg=ACCENT_GREEN,
                   font=("Segoe UI", 10, "bold"), command=self._test_connection,
@@ -584,6 +597,86 @@ class ControlPanel(tk.Toplevel):
             self.update_label.config(text="✅ شما از آخرین نسخه استفاده می‌کنید.", fg=ACCENT_GREEN)
         else:
             self.update_label.config(text="وضعیت به‌روزرسانی نامشخص (یا آفلاین).", fg=TEXT_SECONDARY)
+
+    # ── اکسپورت/ایمپورت تنظیمات ─────────────────────────────────
+
+    def _export_settings(self):
+        """خروجی تمام تنظیمات، موتورها و واژه‌نامه به فایل JSON."""
+        try:
+            from tkinter import filedialog, messagebox
+        except Exception:
+            return
+        path = filedialog.asksaveasfilename(
+            parent=self,
+            defaultextension=".json",
+            filetypes=[("JSON", "*.json"), ("همه", "*.*")],
+            title="خروجی تنظیمات OmniType"
+        )
+        if not path:
+            return
+        try:
+            from core.export_import import gather_export_data
+            import json
+            data = gather_export_data()
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            n_engines = len(data.get("engines", []))
+            n_terms = len(data.get("dictionary", {}).get("prompts", []))
+            self.export_import_label.config(
+                text=f"✅ خروجی با موفقیت ذخیره شد: {n_engines} موتور، {n_terms} اصطلاح",
+                fg=ACCENT_GREEN)
+            messagebox.showinfo("خروجی موفق",
+                                f"تنظیمات در فایل ذخیره شد:\n{path}\n\n"
+                                f"موتورها: {n_engines}\nاصطلاحات واژه‌نامه: {n_terms}",
+                                parent=self)
+        except Exception as e:
+            self.export_import_label.config(text=f"❌ خطا در خروجی: {e}", fg=ACCENT_RED)
+
+    def _import_settings(self):
+        """ورودی تنظیمات از فایل JSON."""
+        try:
+            from tkinter import filedialog, messagebox
+        except Exception:
+            return
+        path = filedialog.askopenfilename(
+            parent=self,
+            filetypes=[("JSON", "*.json"), ("همه", "*.*")],
+            title="انتخاب فایل تنظیمات OmniType"
+        )
+        if not path:
+            return
+        try:
+            import json
+            from core.export_import import apply_import_data
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            self.export_import_label.config(text=f"❌ خطا در خواندن فایل: {e}", fg=ACCENT_RED)
+            return
+
+        n_engines = len(data.get("engines", []))
+        n_terms = len(data.get("dictionary", {}).get("prompts", []))
+        confirm = messagebox.askyesno(
+            "تأیید ورودی",
+            f"آیا از بازیابی تنظیمات زیر اطمینان دارید?\n\n"
+            f"موتورها: {n_engines}\n"
+            f"اصطلاحات واژه‌نامه: {n_terms}\n\n"
+            f"تنظیمات فعلی بازنویسی خواهند شد.",
+            parent=self)
+        if not confirm:
+            return
+        if apply_import_data(data):
+            self.export_import_label.config(
+                text=f"✅ تنظیمات بازیابی شد — برای اعمال کامل برنامه را ری‌استارت کنید.",
+                fg=ACCENT_GREEN)
+            # ریفرش تب‌ها تا تغییرات تا حد امکان بازتاب یابد
+            try:
+                self.refresh()
+            except Exception:
+                pass
+        else:
+            self.export_import_label.config(
+                text="❌ فایل تنظیمات فرمت نامعتبری دارد.", fg=ACCENT_RED)
 
     def _test_connection(self):
         import threading
