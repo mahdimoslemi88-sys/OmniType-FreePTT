@@ -26,10 +26,10 @@ def test_check_for_update_finds_newer(monkeypatch):
 
         def json(self):
             return {
-                "tag_name": "v2.3.0",
-                "html_url": "https://github.com/x/y/releases/tag/v2.3.0",
+                "tag_name": "v2.4.0",
+                "html_url": "https://github.com/x/y/releases/tag/v2.4.0",
                 "assets": [{
-                    "name": "OmniType-FreePTT-v2.3.0.zip",
+                    "name": "OmniType-FreePTT-v2.4.0.zip",
                     "browser_download_url": "https://github.com/x/y/omni.zip",
                 }],
             }
@@ -37,7 +37,7 @@ def test_check_for_update_finds_newer(monkeypatch):
     monkeypatch.setattr(updater.requests, "get", lambda *a, **k: FakeRes())
     info = updater.check_for_update()
     assert info["available"] is True
-    assert info["latest"] == "v2.3.0"
+    assert info["latest"] == "v2.4.0"
     assert info["asset_name"].endswith(".zip")
     assert info["download_url"]
 

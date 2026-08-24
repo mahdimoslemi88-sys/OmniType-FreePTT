@@ -111,7 +111,7 @@ def test_set_stats_zero_words_shows_generic_tooltip(monkeypatch):
     updated = []
     monkeypatch.setattr(tray, "update_tooltip", lambda t: updated.append(t))
     tray.set_stats(0, 0)
-    assert updated and "OmniType v2.2" in updated[0]
+    assert updated and "OmniType v2.3" in updated[0]
     assert "0" not in updated[0]
 
 

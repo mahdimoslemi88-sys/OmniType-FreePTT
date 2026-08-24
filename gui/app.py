@@ -309,12 +309,12 @@ class VoiceTyperGUI:
         # به‌روزرسانی tooltip آیکون تسک‌بار با وضعیت جاری
         try:
             state_titles = {
-                "idle": "OmniType v2.2 — آماده",
-                "recording": "OmniType v2.2 — در حال ضبط...",
-                "processing": "OmniType v2.2 — در حال پردازش...",
-                "success": "OmniType v2.2 — تایپ شد ✓",
+                "idle": "OmniType v2.3 — آماده",
+                "recording": "OmniType v2.3 — در حال ضبط...",
+                "processing": "OmniType v2.3 — در حال پردازش...",
+                "success": "OmniType v2.3 — تایپ شد ✓",
             }
-            self.sys_tray.update_tooltip(state_titles.get(state, "OmniType v2.2"))
+            self.sys_tray.update_tooltip(state_titles.get(state, "OmniType v2.3"))
         except Exception:
             pass
 
