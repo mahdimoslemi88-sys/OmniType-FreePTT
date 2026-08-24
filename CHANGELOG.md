@@ -33,6 +33,7 @@
 - **۸ تست مهندسی پرامپت** (`tests/test_prompt_engineer.py`): ورودی خالی، اولویت LLM، ردِ کاندید بدون کلید، fallback مدل دوم، سقوط به Gemini، و خطای RuntimeError بدون LLM.
 - **۱۰ تست تسکبار** (`tests/test_system_tray.py`): تولید تصویر آیکون، ثبت/اجرای callback، ساخت منو، و رفتار بی‌خطر بدون آیکون/pystray (با رفع کرش `_fire`).
 - **تست‌های میانبر و کنترل رسانه** (`tests/test_hotkey.py`, `tests/test_media_control.py`): نگاشت VK و نرمال‌سازی ترکیب کلیدها با `is_down` مهارشده، و منطق توقف/ادامهٔ رسانه (غیرفعال، toggle، بدون pause قبلی، reset) با `SendInput` مهارشده.
+- **تست‌های صدا و واژه‌نامه** (`tests/test_audio.py`, `tests/test_dictionary_window.py`): تبدیل معتبر PCM→WAV (هدر/پارامتر/round-trip/خالی/پارامتر سفارشی) و ساخت/افزودن/حذف در پنجرهٔ واژه‌نامه با یک ریشهٔ مشترک Tk و مدیر stub.
 
 ---
 
