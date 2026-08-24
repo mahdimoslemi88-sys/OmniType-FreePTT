@@ -19,6 +19,14 @@ _PERSIAN_LETTER_MAP = {
     'space': ' ', 'Enter': '\n', 'enter': '\n',
 }
 
+# واژه‌های رایج فارسی که با تلفظ یک حرف انگلیسی هم‌نویسه‌اند
+# (مثل «بی»=بدون، «وی»=او، «ان»=آن، «او»=او، «ام»=هستم، «ار»/«سی»/«دی»=پسوند یا عدد).
+# این‌ها نباید به‌تنهایی به حرف تبدیل شوند مگر اینکه متن به‌وضوح تلفظِ
+# یک «رشته حروف» باشد (چند نام حرف پشت‌سرهم، مثل «بی سی دی اف»).
+_PERSIAN_HOMOGRAPH_STOPLIST = {'بی', 'وی', 'او', 'ان', 'ام', 'ار', 'سی', 'دی', 'ای', 'آی'}
+# حداقل تعداد نام حرف فارسی برای در نظر گرفتن متن به عنوان «تلفظ رشته حروف»
+_LETTER_DICTATION_MIN = 3
+
 # الگوهای regex برای الگوهای متداول ترکیبی حروف
 _LETTER_PATTERNS = [
     (r'\b(\S+?)\s+و\s+(\S+?)\b', None),  # «A و B» → تک‌تک بررسی می‌شود
@@ -40,6 +48,10 @@ def convert_persian_letters_to_english(text):
 
     # مرحله ۱: تبدیل کلمات تکی (مثل «پی» → «P»)
     words = text.split()
+    # شمارش نام‌های حرف فارسی در کل متن برای تشخیص تلفظِ رشته حروف
+    dictation_count = sum(1 for w in words if w.strip('.,;:!?،؛؟!') in _PERSIAN_LETTER_MAP)
+    is_letter_dictation = dictation_count >= _LETTER_DICTATION_MIN
+
     result_words = []
     for word in words:
         # حذف علائم نگارشی از ابتدا/انتهای کلمه برای تطبیق
@@ -48,8 +60,11 @@ def convert_persian_letters_to_english(text):
         suffix = word[len(word.rstrip('.,;:!?،؛؟!')):]
 
         if clean in _PERSIAN_LETTER_MAP:
+            # واژهٔ فارسیِ هم‌نویس با نام حرف، به‌تنهایی نباید تبدیل شود
+            if clean in _PERSIAN_HOMOGRAPH_STOPLIST and not is_letter_dictation:
+                result_words.append(word)
+                continue
             replacement = _PERSIAN_LETTER_MAP[clean]
-            # اگر حرف بعدی هم فارسی باشد، احتمالاً حرف بعدی هم باید تبدیل شود
             result_words.append(prefix + replacement + suffix)
         else:
             result_words.append(word)
@@ -130,10 +145,11 @@ class PersianNormalizer:
     def fix_punctuations(cls, text):
         """اصلاح فاصله‌گذاری علائم نگارشی"""
         # حذف فاصله قبل از علائم نگارشی
-        text = re.sub(r'\s+([.,!؟:؛])', r'\1', text)
+        # (شامل کاما فارسی ، U+060C که قبلاً در کلاس نبود و فضابندی نمی‌شد)
+        text = re.sub(r'\s+([.,،!؟:؛])', r'\1', text)
 
         # افزودن فاصله بعد از علائم نگارشی در صورتی که فاصله وجود نداشته باشد
-        text = re.sub(r'([.,!؟:؛])([آابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهیa-zA-Z])', r'\1 \2', text)
+        text = re.sub(r'([.,،!؟:؛])([آابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهیa-zA-Z])', r'\1 \2', text)
 
         # جایگزینی فاصله‌های متوالی با یک فاصله
         text = re.sub(r'[ \t]+', ' ', text)
