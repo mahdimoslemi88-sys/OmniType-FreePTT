@@ -8,6 +8,7 @@ deep-translator
 pystray
 Pillow
 pyttsx3
+edge-tts
 # Optional: local ASR (requires GPU for best performance)
 # faster-whisper
 # ctranslate2

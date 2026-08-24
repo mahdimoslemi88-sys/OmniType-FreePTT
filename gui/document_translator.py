@@ -129,7 +129,7 @@ class DocumentTranslatorWindow(tk.Toplevel):
             self._app.safe_type_and_restore_clipboard(result)
 
     def _speak_result(self):
-        """خواندن نتیجهٔ ترجمه با صدای سیستم (در thread جداگانه)."""
+        """خواندن نتیجهٔ ترجمه با صدای سیستم یا صدای آنلاین فارسی (در thread جداگانه)."""
         result = self._out_text.get("1.0", "end").strip()
         if not result:
             messagebox.showwarning("خطا", "ابتدا متن را ترجمه کنید.", parent=self)
@@ -137,8 +137,33 @@ class DocumentTranslatorWindow(tk.Toplevel):
         try:
             from core.tts import speak
             self._status.config(text="🔊 در حال پخش صدا...")
-            speak(result)
-            # وضعیت پس از کمی تأخیر (بدون بلوک کردن UI)
-            self.after(1200, lambda: self._status.config(text="🔊 در حال پخش..."))
+            speak(result, on_done=self._on_speak_done)
         except Exception as e:
             self._status.config(text=f"❌ خطا در پخش صدا: {e}")
+
+    def _on_speak_done(self, status):
+        """نتیجهٔ پخش صدا — از thread کارگر صدا زده می‌شود، پس به thread اصلی منتقل می‌شود."""
+        try:
+            self.after(0, lambda: self._apply_speak_status(status))
+        except Exception:
+            pass
+
+    def _apply_speak_status(self, status):
+        """به‌روزرسانی UI با نتیجهٔ پخش صدا (در thread اصلی)."""
+        src = status.get("source")
+        lang = status.get("lang")
+        if src == "local":
+            label = "🔊 پخش با صدای سیستم" + (" (فارسی)" if lang == "fa" else "")
+            self._status.config(text=label)
+        elif src == "online":
+            self._status.config(text="🔊 پخش با صدای آنلاین فارسی (نیاز به اینترنت)")
+        elif status.get("reason") == "empty":
+            self._status.config(text="")
+        else:
+            # صدای محلی موجود نیست و صدای آنلاین در دسترس نبود → راهنما
+            self._status.config(text="❌ صدای فارسی در دسترس نیست")
+            try:
+                from core.tts import persian_voice_guide
+                messagebox.showinfo("راهنمای نصب صدای فارسی", persian_voice_guide(), parent=self)
+            except Exception:
+                pass

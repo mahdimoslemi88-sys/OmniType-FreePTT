@@ -1,10 +1,18 @@
-"""متن‌به‌گفتار (TTS) — خواندن نتایج ترجمه با صدای سیستم.
+"""متن‌به‌گفتار (TTS) — خواندن نتایج ترجمه با صدای سیستم یا صدای آنلاین.
 
-پیاده‌سازی با `pyttsx3` (SAPI5 ویندوز) و اجرای آن در thread جداگانه تا
-پنجرهٔ برنامه هرگز قفل نشود. اگر pyttsx3 نصب نباشد یا خطایی رخ دهد،
-هیچ‌چیز پخش نمی‌شود و برنامه نمی‌شکند.
+استراتژی پخش:
+  1. صدای محلی SAPI ویندوز (pyttsx3) اگر برای زبان متن موجود باشد (مثل David/Zira انگلیسی).
+  2. برای فارسی بدون صدای محلی → صدای نورال آنلاین مایکروسافت (edge-tts) با
+     `fa-IR-FaridNeural` — تلفظ فارسی واقعی، رایگان و بدون کلید.
+  3. اگر هیچ‌کدام ممکن نبود → هیچ‌چیز پخش نمی‌شود و وضعیت به UI گزارش می‌شود
+     تا راهنمای نصب صدای فارسی نمایش داده شود.
+
+پخش همیشه در thread جداگانه انجام می‌شود تا پنجرهٔ برنامه هرگز قفل نشود.
+هر خطا بی‌صدا نادیده گرفته می‌شود — برنامه هیچ‌وقت نمی‌شکند.
 """
+import os
 import re
+import tempfile
 import threading
 
 _HAS_PYTTSX3 = False
@@ -14,7 +22,20 @@ try:
 except ImportError:
     pyttsx3 = None
 
+_HAS_EDGE = False
+try:
+    import edge_tts  # noqa: F401
+    _HAS_EDGE = True
+except ImportError:
+    edge_tts = None
+
 _PERSIAN_RE = re.compile(r'[\u0600-\u06FF]')
+
+# صدای نورال فارسی مایکروسافت (زن/مرد)
+PERSIAN_VOICES = ("fa-IR-DilaraNeural", "fa-IR-FaridNeural")
+
+# حداکثر طول هر قطعه برای سرویس آنلاین (کوتاه‌تر از سقف سرویس تا امن باشد)
+_ONLINE_CHUNK_MAX = 900
 
 
 def is_persian(text):
@@ -53,37 +74,172 @@ def _pick_voice(engine, text):
     return None
 
 
-def speak(text, wait=False):
-    """خواندن متن با صدای سیستم.
+def has_persian_voice():
+    """آیا یک صدای فارسی SAPI روی ویندوز نصب است؟ (برای نمایش راهنما)."""
+    if not _HAS_PYTTSX3:
+        return False
+    try:
+        engine = pyttsx3.init()
+        try:
+            return _pick_voice(engine, "سلام") is not None
+        finally:
+            try:
+                engine.stop()
+            except Exception:
+                pass
+    except Exception:
+        return False
+
+
+def _play_mp3(path):
+    """پخش فایل MP3 با MCI ویندوز (بدون وابستگی اضافه). برمی‌گرداند موفقیت."""
+    try:
+        import ctypes
+        mci = ctypes.windll.winmm.mciSendStringW
+        err_buf = ctypes.create_unicode_buffer(256)
+        if mci(f'open "{path}" alias omni_tts', err_buf, 256, 0) != 0:
+            return False
+        try:
+            rc = mci("play omni_tts wait", err_buf, 256, 0)
+            return rc == 0
+        finally:
+            mci("close omni_tts", err_buf, 256, 0)
+    except Exception:
+        return False
+
+
+def _chunk_text(text, limit=_ONLINE_CHUNK_MAX):
+    """برش متن طولانی به قطعات امن (در مرز جمله/نقطه تا حد امکان)."""
+    text = text.strip()
+    if len(text) <= limit:
+        return [text] if text else []
+    chunks = []
+    while len(text) > limit:
+        cut = text.rfind(" ", 0, limit)
+        if cut < limit // 2:
+            cut = limit
+        chunks.append(text[:cut].strip())
+        text = text[cut:].strip()
+    if text:
+        chunks.append(text)
+    return chunks
+
+
+def _speak_online(text):
+    """پخش فارسی با صدای نورال آنلاین مایکروسافت (edge-tts → MP3 → MCI)."""
+    if not _HAS_EDGE:
+        return False
+    import asyncio
+
+    voice = PERSIAN_VOICES[0]
+    chunks = _chunk_text(text)
+    ok = False
+    for chunk in chunks:
+        path = None
+        try:
+            fd, path = tempfile.mkstemp(suffix=".mp3")
+            os.close(fd)
+
+            async def _synth():
+                tts = edge_tts.Communicate(chunk, voice=voice)
+                await tts.save(path)
+
+            asyncio.run(_synth())
+            if _play_mp3(path):
+                ok = True
+        except Exception as e:
+            print(f"[TTS] Online synthesis failed: {e}")
+            return False
+        finally:
+            if path:
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
+    return ok
+
+
+def speak(text, wait=False, on_done=None):
+    """خواندن متن: صدای محلی اگر موجود، وگرنه صدای آنلاین فارسی (edge-tts).
 
     - اجرا در thread جداگانه (wait=False) تا GUI مسدود نشود.
     - ورودی خالی → هیچ.
-    - هر خطای داخلی بی‌صدا نادیده گرفته می‌شود.
+    - `on_done(status)` بعد از پایان پخش در همان thread صدا زده می‌شود:
+        status = {"source": "local"|"online"|"none",
+                  "lang": "fa"|"en"|None,
+                  "reason": None|"empty"|"online_failed"|"no_local_voice"}
+      UI می‌تواند از این برای نمایش راهنمای نصب صدای فارسی استفاده کند.
     """
+    status = {"source": "none", "lang": None, "reason": None}
     if not text or not text.strip():
-        return
-    if not _HAS_PYTTSX3:
+        status["reason"] = "empty"
+        if on_done:
+            on_done(status)
         return
 
+    fa = is_persian(text)
+
     def worker():
-        engine = None
-        try:
-            engine = pyttsx3.init()
-            voice = _pick_voice(engine, text)
-            if voice:
-                engine.setProperty("voice", voice)
-            engine.say(text)
-            engine.runAndWait()
-        except Exception as e:
-            print(f"[TTS] Error: {e}")
-        finally:
-            if engine is not None:
-                try:
-                    engine.stop()
-                except Exception:
-                    pass
+        result = dict(status)
+
+        # ── مسیر محلی SAPI ──────────────────────────────────────
+        if _HAS_PYTTSX3:
+            engine = None
+            try:
+                engine = pyttsx3.init()
+                voice = _pick_voice(engine, text)
+                if voice:
+                    engine.setProperty("voice", voice)
+                engine.say(text)
+                engine.runAndWait()
+                result = {"source": "local", "lang": "fa" if fa else "en", "reason": None}
+                if on_done:
+                    on_done(result)
+                return
+            except Exception as e:
+                print(f"[TTS] Local voice failed: {e}")
+            finally:
+                if engine is not None:
+                    try:
+                        engine.stop()
+                    except Exception:
+                        pass
+
+        # ── فارسی بدون صدای محلی → صدای آنلاین ───────────────────
+        if fa and _HAS_EDGE:
+            if _speak_online(text):
+                result = {"source": "online", "lang": "fa", "reason": None}
+                if on_done:
+                    on_done(result)
+                return
+            result = {"source": "none", "lang": "fa", "reason": "online_failed"}
+            if on_done:
+                on_done(result)
+            return
+
+        # ── هیچ راهی نبود ────────────────────────────────────────
+        result = {"source": "none", "lang": "fa" if fa else "en",
+                  "reason": "online_failed" if fa else "no_local_voice"}
+        if on_done:
+            on_done(result)
 
     if wait:
         worker()
     else:
         threading.Thread(target=worker, daemon=True).start()
+
+
+def persian_voice_guide():
+    """متن راهنمای نصب صدای فارسی SAPI روی ویندوز (برای نمایش به کاربر)."""
+    return (
+        "صدای فارسی روی ویندوز نصب نیست و سرویس صدای آنلاین در دسترس نبود.\n\n"
+        "📥 نصب صدای فارسی (راهنمای ویندوز ۱۰/۱۱):\n"
+        "۱. تنظیمات (Settings) → زمان و زبان (Time & language)\n"
+        "۲. زبان و منطقه (Language & region)\n"
+        "۳. افزودن زبان (Add a language) → فارسی (Persian)\n"
+        "۴. روی فارسی کلیک کنید → گزینه‌ها (Options)\n"
+        "۵. در بخش «گفتار» (Speech) دکمهٔ دانلود را بزنید و منتظر نصب بمانید\n"
+        "۶. برنامه را دوباره اجرا کنید — صدا به‌صورت خودکار انتخاب می‌شود.\n\n"
+        "یا اگر اینترنت دارید، همان دکمهٔ «پخش صدا» را دوباره بزنید تا با\n"
+        "صدای آنلاین مایکروسافت (fa-IR-DilaraNeural) پخش شود."
+    )
