@@ -457,6 +457,40 @@ class ControlPanel(tk.Toplevel):
                              command=self._toggle_pause, anchor="w", padx=14, pady=8)
         chk.pack(fill="x", padx=12, pady=3)
 
+        # ── VAD: تشخیص فعالیت گفتار ──────────────────────────
+        _section(body, "🎙️ تشخیص خودکار سکوت (VAD)")
+        self.vad_var = tk.BooleanVar(value=self.parent.vad_enabled)
+        vad_chk = tk.Checkbutton(
+            body,
+            text="⏯️ توقف خودکار ضبط پس از سکوت",
+            variable=self.vad_var,
+            bg=BG_DARK, fg=TEXT_PRIMARY, selectcolor=BG_MID,
+            activebackground=BG_DARK, activeforeground=TEXT_BRIGHT,
+            font=("Segoe UI", 10), command=self._toggle_vad, anchor="w",
+            padx=14, pady=8)
+        vad_chk.pack(fill="x", padx=12, pady=3)
+        tk.Label(body, text="وقتی پس از شروع صحبت، صدا قطع شود، ضبط خودکار متوقف می‌شود.",
+                 bg=BG_DARK, fg=TEXT_SECONDARY, font=("Segoe UI", 9),
+                 anchor="w").pack(fill="x", padx=14, pady=(0, 4))
+        # تنظیم آستانه زمان سکوت
+        timeout_row = tk.Frame(body, bg=BG_DARK)
+        timeout_row.pack(fill="x", padx=12, pady=2)
+        tk.Label(timeout_row, text="زمان سکوت (ثانیه):", bg=BG_DARK, fg=TEXT_PRIMARY,
+                 font=("Segoe UI", 9)).pack(side="left")
+        self.vad_timeout_var = tk.StringVar(value=str(self.parent.vad_silence_timeout))
+        timeout_spin = tk.Spinbox(timeout_row, from_=0.5, to=5.0, increment=0.1,
+                                   textvariable=self.vad_timeout_var, width=6,
+                                   font=("Segoe UI", 9), bg=BG_SURFACE, fg=TEXT_PRIMARY,
+                                   buttonbackground=BG_MID)
+        timeout_spin.pack(side="left", padx=6)
+        tk.Button(timeout_row, text="ذخیره", bg=ACCENT_CYAN, fg=BG_DARKER,
+                  font=("Segoe UI", 9, "bold"), command=self._save_vad_settings,
+                  cursor="hand2", relief="flat", bd=0, padx=10, pady=4).pack(side="left")
+        self.vad_status_label = tk.Label(body, text="", bg=BG_DARK, fg=TEXT_SECONDARY,
+                                          font=("Segoe UI", 9), anchor="w")
+        self.vad_status_label.pack(fill="x", padx=14, pady=2)
+        self._refresh_vad_status()
+
         _section(body, "کارت گرافیک")
         tk.Button(body, text="🧹 آزادسازی VRAM کارت گرافیک (برای بازی)", bg=BG_SURFACE, fg=ACCENT_YELLOW,
                   font=("Segoe UI", 10, "bold"), command=self.parent.free_vram_action,
@@ -522,6 +556,27 @@ class ControlPanel(tk.Toplevel):
     def _toggle_pause(self):
         self.parent.toggle_auto_pause_media()
         self.pause_var.set(self.parent.auto_pause_media)
+
+    def _toggle_vad(self):
+        self.parent.toggle_vad()
+        self._refresh_vad_status()
+
+    def _save_vad_settings(self):
+        try:
+            timeout = float(self.vad_timeout_var.get())
+        except (TypeError, ValueError):
+            timeout = 1.5
+        self.parent.set_vad_settings(silence_timeout=timeout)
+        self.vad_status_label.config(
+            text=f"✅ ذخیره شد — توقف پس از {timeout}s سکوت", fg=ACCENT_GREEN)
+
+    def _refresh_vad_status(self):
+        if self.parent.vad_enabled:
+            t = self.parent.vad_silence_timeout
+            self.vad_status_label.config(
+                text=f"✅ فعال — توقف پس از {t}s سکوت", fg=ACCENT_GREEN)
+        else:
+            self.vad_status_label.config(text="غیرفعال", fg=TEXT_SECONDARY)
 
     # ── میکروفون ─────────────────────────────────────────────────
 

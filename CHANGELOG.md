@@ -1,9 +1,15 @@
 # Changelog — OmniType-FreePTT
 
 همه تغییرات مهم این پروژه به ترتیب نسخه ثبت می‌شود.
-قالب: [Keep a Changelog](https://keepachangelog.com/fa-IR/1.1.0/) — نسخه‌بندی: [SemVer](https://semver.org/lang/fa/).
+قالب: [Keep a Changelog](https://keepachangelog.com/fa-IR/1.1.0/) — نسخه‌بندی: [SemVer](https://semver.org/lang/fa/).## [Unreleased]
 
-## [Unreleased] — به‌روزرسانی خودکار، اکسپورت/ایمپورت و متن‌به‌گفتار
+### Added
+- **تشخیص خودکار سکوت (VAD):** ضبط خودکار پس از قطع صدا متوقف می‌شود — فعال‌سازی از تب تنظیمات پنل کنترل با قابلیت تنظیم زمان سکوت (پیش‌فرض ۱٫۵ ثانیه).
+
+### Tests
+- `tests/test_vad.py` — ۹ تست برای VAD tracker و تنظیمات
+
+ — به‌روزرسانی خودکار، اکسپورت/ایمپورت و متن‌به‌گفتار
 
 ### ✨ امکانات جدید
 - **🔊 متن‌به‌گفتار نتیجهٔ ترجمه** (`core/tts.py`, `gui/document_translator.py`):

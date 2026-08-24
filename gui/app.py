@@ -67,6 +67,16 @@ class VoiceTyperGUI:
         self.current_lang = "fa"
         # توقف خودکار ویدیو/موزیک هنگام صحبت (خواندن از .env)
         self.auto_pause_media = ENV.get("AUTO_PAUSE_MEDIA", "true").strip().lower() in ("1", "true", "yes", "on")
+        # ── VAD: تشخیص فعالیت گفتار و توقف خودکار هنگام سکوت ──
+        self.vad_enabled = ENV.get("VAD_ENABLED", "false").strip().lower() in ("1", "true", "yes", "on")
+        try:
+            self.vad_silence_timeout = float(ENV.get("VAD_SILENCE_TIMEOUT", "1.5"))
+        except (TypeError, ValueError):
+            self.vad_silence_timeout = 1.5
+        try:
+            self.vad_threshold = float(ENV.get("VAD_THRESHOLD", "0.02"))
+        except (TypeError, ValueError):
+            self.vad_threshold = 0.02
         self.media = MediaController(enabled=self.auto_pause_media)
         # دستگاه ورودی صوت انتخابی (ایندکس pyaudio؛ اگر خالی باشد پیش‌فرض سیستم)
         self.input_device_index = None
@@ -353,6 +363,31 @@ class VoiceTyperGUI:
             pass
         self.sys_tray.set_auto_pause_state(self.auto_pause_media)
         self.set_ui_state("idle")
+
+    def toggle_vad(self):
+        """فعال/غیرفعال‌سازی VAD (تشخیص سکوت و توقف خودکار ضبط)."""
+        self.vad_enabled = not self.vad_enabled
+        try:
+            save_env_dict({"VAD_ENABLED": "true" if self.vad_enabled else "false"})
+        except Exception:
+            pass
+
+    def set_vad_settings(self, enabled=None, silence_timeout=None, threshold=None):
+        """تنظیم پارامترهای VAD و ذخیره در .env."""
+        updates = {}
+        if enabled is not None:
+            self.vad_enabled = enabled
+            updates["VAD_ENABLED"] = "true" if enabled else "false"
+        if silence_timeout is not None:
+            self.vad_silence_timeout = float(silence_timeout)
+            updates["VAD_SILENCE_TIMEOUT"] = str(self.vad_silence_timeout)
+        if threshold is not None:
+            self.vad_threshold = float(threshold)
+            updates["VAD_THRESHOLD"] = str(self.vad_threshold)
+        try:
+            save_env_dict(updates)
+        except Exception:
+            pass
 
     # ── تاریخچه ──────────────────────────────────────────────────
 
@@ -820,6 +855,10 @@ class VoiceTyperGUI:
             self._notify_level(0.0)
             return
 
+        # ── VAD state ──────────────────────────────────────────────
+        silence_start = None
+        speech_started = False
+
         while self.is_recording:
             if self.recording_mode == "hotkey" and not is_hotkey_held(self.current_hotkey):
                 self.is_recording = False
@@ -827,7 +866,25 @@ class VoiceTyperGUI:
             try:
                 data = stream.read(1024, exception_on_overflow=False)
                 self.frames.append(data)
-                self._notify_level(get_input_level(data))
+                level = get_input_level(data)
+                self._notify_level(level)
+
+                # ── VAD: تشخیص فعالیت گفتار / سکوت ──
+                if self.vad_enabled:
+                    now = time.time()
+                    if level >= self.vad_threshold:
+                        # صدا شنیده شد → شروع صحبت یا ادامه
+                        speech_started = True
+                        silence_start = None
+                    else:
+                        # سکوت
+                        if speech_started:
+                            if silence_start is None:
+                                silence_start = now
+                            elif (now - silence_start) >= self.vad_silence_timeout:
+                                print("[VAD] Silence detected — auto-stopping recording.")
+                                self.is_recording = False
+                                break
             except Exception:
                 break
 

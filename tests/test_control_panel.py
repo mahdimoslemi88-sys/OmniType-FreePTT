@@ -25,6 +25,9 @@ class _StubParent:
         self.current_hotkey = "caps lock"
         self.history = []
         self.auto_pause_media = True
+        self.vad_enabled = False
+        self.vad_silence_timeout = 1.5
+        self.vad_threshold = 0.02
         self.change_calls = []
 
     def change_engine(self, name):
@@ -49,6 +52,8 @@ class _StubParent:
     toggle_auto_pause_media = _noop
     free_vram_action = _noop
     quit_app = _noop
+    toggle_vad = _noop
+    set_vad_settings = _noop
 
     def translate_manual_action(self, mode):
         pass
