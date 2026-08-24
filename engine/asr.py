@@ -51,11 +51,24 @@ def transcribe_custom_api(wav_bytes, lang_code="fa", prompt=None, preferred_engi
     raise Exception(f"All ASR engines failed: {last_err}")
 
 
+def _google_lang(lang):
+    """نگاشت نام حالت برنامه به کد زبان Google Speech.
+
+    حالت‌هایی که گفتار فارسی را ضبط می‌کنند باید به fa-IR بروند؛
+    حالت prompt_engineer هم گفتار (معمولاً فارسی) را به پرامپت تبدیل می‌کند،
+    پس باید فارسی باشد — نه انگلیسی (باگ قبلی که گفتار فارسی را
+    با en-US تشخیص می‌داد و شکست می‌خورد).
+    """
+    if lang in ("fa", "auto", "translate_fa_en", "prompt_engineer"):
+        return "fa-IR"
+    return "en-US"
+
+
 def recognize_google(raw_data, lang="fa"):
     """تشخیص گفتار با Google Speech رایگان."""
     r = sr.Recognizer()
     audio = sr.AudioData(raw_data, RATE, 2)
-    g_lang = "fa-IR" if lang in ("fa", "auto", "translate_fa_en") else "en-US"
+    g_lang = _google_lang(lang)
     try:
         return r.recognize_google(audio, language=g_lang)
     except sr.UnknownValueError:
