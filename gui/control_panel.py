@@ -365,6 +365,7 @@ class ControlPanel(tk.Toplevel):
             ("prompt_engineer", "✨ مهندسی پرامپت: گفتار ➔ پرامپت ساختاریافته AI"),
             ("translate_fa_en", "🔤 ترجمه همزمان: گفتار فارسی ➔ تایپ انگلیسی"),
             ("translate_en_fa", "🌐 ترجمه همزمان: گفتار انگلیسی ➔ تایپ فارسی"),
+            ("voice_command", "⚡ دستور صوتی: فرمان‌های صوتی ➔ اجرای کیبورد"),
         ]
         self.lang_btns = []
         for code, label in langs:

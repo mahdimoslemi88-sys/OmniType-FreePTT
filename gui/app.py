@@ -23,6 +23,7 @@ from engine.asr import recognize_google, transcribe_custom_api
 from engine.local_whisper import HAS_FASTER_WHISPER, LOCAL_WHISPER, BASE_WHISPER_PROMPT
 from engine.prompt_engineer import AIPromptEngineer
 from engine.translator import LLMTranslatorEngine
+from engine.voice_commands import try_execute_voice_command
 from gui.api_settings_window import UniversalAPISettingsWindow
 from gui.control_panel import ControlPanel
 from gui.dictionary_window import CustomDictionaryWindow
@@ -806,6 +807,19 @@ class VoiceTyperGUI:
                     text = recognize_google(raw_data, lang=self.current_lang)
 
             if text:
+                # ── حالت دستور صوتی ──
+                if self.current_lang == "voice_command":
+                    executed = try_execute_voice_command(text)
+                    if executed:
+                        self.history.append(f"⚡ {text}")
+                        self.set_ui_state("success")
+                    else:
+                        # فرمان شناخته‌نشده — متن را تایپ کن تا کاربر ببیند
+                        self.history.append(f"❓ {text}")
+                        self.safe_type_and_restore_clipboard(text)
+                        self.set_ui_state("success")
+                    return
+
                 if self.current_lang == "prompt_engineer":
                     try:
                         text = AIPromptEngineer.generate_engineered_prompt(text)
