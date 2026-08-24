@@ -86,7 +86,8 @@ def convert_persian_letters_to_english(text):
                 return result
         return word
 
-    text = re.sub(r'[\w\u200c]+', _replace_combo, text)
+    # (خط تیره هم جزو رشتهٔ ترکیبی است تا «بی-سی-دی» مثل «بی‌سی‌دی‌اف» تبدیل شود)
+    text = re.sub(r'[\w\u200c-]+', _replace_combo, text)
 
     return text
 
@@ -149,7 +150,10 @@ class PersianNormalizer:
         text = re.sub(r'\s+([.,،!؟:؛])', r'\1', text)
 
         # افزودن فاصله بعد از علائم نگارشی در صورتی که فاصله وجود نداشته باشد
-        text = re.sub(r'([.,،!؟:؛])([آابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهیa-zA-Z])', r'\1 \2', text)
+        # (نقطه استثناست: lookbehind مانع خراب شدن ایمیل/URL/اعشار می‌شود:
+        #  gmail.com و 3.14 دست‌نخورده می‌مانند، ولی «سلام.دنیا» → «سلام. دنیا»)
+        text = re.sub(r'([،!؟:؛,])([آابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهیa-zA-Z])', r'\1 \2', text)
+        text = re.sub(r'(?<![A-Za-z0-9_.-])(\.)([آابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهیa-zA-Z])', r'\1 \2', text)
 
         # جایگزینی فاصله‌های متوالی با یک فاصله
         text = re.sub(r'[ \t]+', ' ', text)
