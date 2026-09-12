@@ -95,7 +95,7 @@ class SystemTray:
             return
         try:
             image = make_tray_image(32)
-            self._icon = pystray.Icon("OmniType-FreePTT", image, "OmniType v2.3 — آماده", self._build_menu())
+            self._icon = pystray.Icon("OmniType-FreePTT", image, "OmniType v2.4 — آماده", self._build_menu())
             threading.Thread(target=self._icon.run, daemon=True).start()
         except Exception as e:
             print(f"[SystemTray] Error creating icon: {e}")
@@ -111,15 +111,15 @@ class SystemTray:
     def set_stats(self, total_words, today_words):
         """به‌روزرسانی tooltip با خلاصهٔ آمار — نمایش بدون نیاز به باز کردن پنل."""
         if total_words <= 0:
-            self.update_tooltip("OmniType v2.3 — آماده")
+            self.update_tooltip("OmniType v2.4 — آماده")
             return
         today_part = f" · {today_words} امروز" if today_words > 0 else ""
-        self.update_tooltip(f"📝 {total_words}{today_part} — OmniType v2.3")
+        self.update_tooltip(f"📝 {total_words}{today_part} — OmniType v2.4")
 
     def update_tooltip_theme(self, theme_name):
         """به‌روزرسانی tooltip پس از تغییر تم (برای نمایش نام تم جدید)."""
         theme_label = {"editorial": "✨ Editorial", "midnight": "🌙 Midnight"}.get(theme_name, "🎨 Catppuccin")
-        self.update_tooltip(f"OmniType v2.3 ({theme_label}) — آماده")
+        self.update_tooltip(f"OmniType v2.4 ({theme_label}) — آماده")
 
     def stop(self):
         icon = self._icon
