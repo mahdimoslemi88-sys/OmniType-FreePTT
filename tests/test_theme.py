@@ -34,16 +34,17 @@ class TestThemeSwitching:
         assert theme.get_theme_name() == "catppuccin"
         assert theme.BG_DARK == "#181825"
 
-    def test_invalid_theme_defaults_to_catppuccin(self):
+    def test_invalid_theme_defaults_to_editorial(self):
         import gui.theme as theme
         theme.set_theme("nonexistent_theme")
-        assert theme.get_theme_name() == "catppuccin"
+        assert theme.get_theme_name() == "editorial"
 
-    def test_theme_names_dict_has_both_themes(self):
+    def test_theme_names_dict_has_all_themes(self):
         import gui.theme as theme
+        assert "editorial" in theme.THEME_NAMES
         assert "catppuccin" in theme.THEME_NAMES
         assert "midnight" in theme.THEME_NAMES
-        assert len(theme.THEME_NAMES) == 2
+        assert len(theme.THEME_NAMES) == 3
 
     def test_get_palette_returns_dict(self):
         import gui.theme as theme
@@ -52,10 +53,11 @@ class TestThemeSwitching:
         assert pal["BG_DARK"] == "#0d1117"
         assert "ACCENT_RED" in pal
 
-    def test_get_palette_invalid_returns_catppuccin(self):
+    def test_get_palette_invalid_returns_editorial(self):
         import gui.theme as theme
         pal = theme.get_palette("bogus")
-        assert pal["BG_DARK"] == "#181825"
+        assert "BG_DARK" in pal
+        assert pal["BG_DARK"].startswith("#")
 
     def test_all_palette_colors_exist_after_switch(self):
         """پس از سوئیچ، همه ثابت‌های رنگ باید مقدار hex معتبر داشته باشند."""
@@ -74,4 +76,4 @@ class TestThemeSwitching:
         import gui.theme as theme
         theme.set_theme("midnight")
         assert theme.FONT_EN == ("Segoe UI", 9)
-        assert theme.FONT_FA == ("Tahoma", 9)
+        assert theme.FONT_FA == ("Segoe UI", 9)

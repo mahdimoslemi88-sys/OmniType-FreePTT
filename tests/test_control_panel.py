@@ -115,8 +115,8 @@ def test_pick_engine_calls_parent_and_activates_button(panel):
 
 def test_lang_tab_has_modes(panel):
     cp, _stub, _root = panel
-    # fa, en, auto, prompt_engineer, translate_fa_en, translate_en_fa
-    assert len(cp.lang_btns) == 6
+    # fa, en, auto, prompt_engineer, translate_fa_en, translate_en_fa, voice_command
+    assert len(cp.lang_btns) == 7
 
 
 def test_pick_language_updates_parent(panel):

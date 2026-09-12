@@ -173,7 +173,7 @@ class UniversalAPISettingsWindow(tk.Toplevel):
         tk.Label(frame, text=label, bg=BG_DARK, fg=TEXT_PRIMARY,
                  font=("Segoe UI", 9)).grid(row=row, column=0, sticky="w", pady=2)
         ent = tk.Entry(frame, bg=BG_MID, fg=TEXT_BRIGHT, textvariable=var,
-                       show=show, insertbackground="white", font=("Segoe UI", 9), width=42)
+                       show=show, insertbackground=TEXT_PRIMARY, font=("Segoe UI", 9), width=42)
         ent.grid(row=row, column=1, padx=5, pady=2)
 
     def _role_key(self):

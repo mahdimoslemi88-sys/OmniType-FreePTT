@@ -107,7 +107,7 @@ class VoiceTyperGUI:
 
         # ── تم رنگی ──────────────────────────────────────────────────
         from gui.theme import set_theme as _set_theme
-        _saved_theme = ENV.get("THEME", "catppuccin").strip().lower()
+        _saved_theme = ENV.get("THEME", "editorial").strip().lower()
         _set_theme(_saved_theme)
 
         self.is_recording = False

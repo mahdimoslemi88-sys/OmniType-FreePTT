@@ -118,7 +118,7 @@ class SystemTray:
 
     def update_tooltip_theme(self, theme_name):
         """به‌روزرسانی tooltip پس از تغییر تم (برای نمایش نام تم جدید)."""
-        theme_label = {"midnight": "🌙 Midnight"}.get(theme_name, "🎨 Catppuccin")
+        theme_label = {"editorial": "✨ Editorial", "midnight": "🌙 Midnight"}.get(theme_name, "🎨 Catppuccin")
         self.update_tooltip(f"OmniType v2.3 ({theme_label}) — آماده")
 
     def stop(self):

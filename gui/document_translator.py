@@ -33,7 +33,7 @@ class DocumentTranslatorWindow(tk.Toplevel):
         frame_in = tk.Frame(self, bg=BG_DARK)
         frame_in.pack(fill="both", expand=True, padx=15, pady=4)
         self._in_text = tk.Text(frame_in, wrap="word", bg=BG_MID, fg=TEXT_BRIGHT,
-                                insertbackground="white", font=("Tahoma", 10),
+                                insertbackground=TEXT_PRIMARY, font=("Segoe UI", 10),
                                 relief="flat", bd=0, padx=8, pady=8)
         self._in_text.pack(side="left", fill="both", expand=True)
         sb_in = tk.Scrollbar(frame_in, command=self._in_text.yview)
@@ -59,7 +59,7 @@ class DocumentTranslatorWindow(tk.Toplevel):
         frame_out = tk.Frame(self, bg=BG_DARK)
         frame_out.pack(fill="both", expand=True, padx=15, pady=4)
         self._out_text = tk.Text(frame_out, wrap="word", bg=BG_MID, fg=ACCENT_GREEN,
-                                 insertbackground="white", font=("Tahoma", 10),
+                                 insertbackground=TEXT_PRIMARY, font=("Segoe UI", 10),
                                  relief="flat", bd=0, padx=8, pady=8)
         self._out_text.pack(side="left", fill="both", expand=True)
         sb_out = tk.Scrollbar(frame_out, command=self._out_text.yview)

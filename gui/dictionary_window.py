@@ -34,13 +34,13 @@ class CustomDictionaryWindow(tk.Toplevel):
 
         tk.Label(frame_add, text="کلمه انگلیسی (مثلاً PyTorch):",
                  bg=BG_DARK, fg=TEXT_PRIMARY, font=("Segoe UI", 9)).grid(row=0, column=0, sticky="w", pady=2)
-        self.entry_en = tk.Entry(frame_add, bg=BG_MID, fg=TEXT_BRIGHT, insertbackground="white",
+        self.entry_en = tk.Entry(frame_add, bg=BG_MID, fg=TEXT_BRIGHT, insertbackground=TEXT_PRIMARY,
                                  font=("Segoe UI", 9), width=24)
         self.entry_en.grid(row=0, column=1, padx=5, pady=2)
 
         tk.Label(frame_add, text="تلفظ فارسی (مثلاً پایتورچ):",
                  bg=BG_DARK, fg=TEXT_PRIMARY, font=("Segoe UI", 9)).grid(row=1, column=0, sticky="w", pady=2)
-        self.entry_fa = tk.Entry(frame_add, bg=BG_MID, fg=TEXT_BRIGHT, insertbackground="white",
+        self.entry_fa = tk.Entry(frame_add, bg=BG_MID, fg=TEXT_BRIGHT, insertbackground=TEXT_PRIMARY,
                                  font=("Segoe UI", 9), width=24)
         self.entry_fa.grid(row=1, column=1, padx=5, pady=2)
 
